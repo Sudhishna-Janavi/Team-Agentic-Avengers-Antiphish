@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: antiphish-backend
+    env: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_ORIGINS
+        value: https://your-frontend.vercel.app,http://127.0.0.1:5173
+      - key: RATE_LIMIT_REQUESTS
+        value: "60"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: SUSPICIOUS_TLDS
+        value: ru,tk,xyz,top,click,zip
+      - key: REPORTS_DIR
+        value: ./reports
+      - key: REPORT_IP_HASH_SALT
+        value: change-me-in-render
+      - key: REPORT_DEDUPE_SECONDS
+        value: "86400"
