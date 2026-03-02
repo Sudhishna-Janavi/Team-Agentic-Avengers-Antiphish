@@ -112,6 +112,7 @@ class ReportListItem(BaseModel):
     user: str
     whySuspicious: str
     suspiciousPercent: int = Field(ge=0, le=100)
+    frequency: int = Field(ge=1)
 
 
 class ReportsListResponse(BaseModel):
@@ -133,3 +134,4 @@ class ReportDetailResponse(BaseModel):
     whySuspicious: str
     evidence: str | None = None
     suspiciousPercent: int = Field(ge=0, le=100)
+    frequency: int = Field(ge=1)

@@ -24,7 +24,6 @@ const tips = [
 
 const state = {
   lastScannedUrl: "",
-  reportedUrls: new Set(),
   authToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
   authRole: localStorage.getItem(AUTH_ROLE_KEY) || "",
   authUsername: localStorage.getItem(AUTH_EMAIL_KEY) || "",
@@ -150,9 +149,9 @@ async function refreshReportCount() {
 }
 
 function setLegacySectionsState() {
-  streamStatus.textContent = "Stream: unavailable in minimal backend";
+  streamStatus.textContent = "Stream: warming up";
   streamStatus.style.borderColor = "#5f7f98";
-  alertsList.innerHTML = "<li>Live stream is disabled in this minimal backend.</li>";
+  alertsList.innerHTML = "<li>Live alerts will appear here as community reports come in.</li>";
 
   refreshDashboard.disabled = true;
   refreshDashboard.textContent = "Local Only";
@@ -325,14 +324,10 @@ scanForm.addEventListener("submit", async (event) => {
       : "No recommendations returned.";
     confidencePill.textContent = `Risk: ${readableRiskLabel(String(data.riskLabel || "low"))}`;
 
-    const normalized = state.lastScannedUrl;
-    const canReport =
-      String(data.riskLabel || "low") !== "low" && !state.reportedUrls.has(normalized);
+    const canReport = String(data.riskLabel || "low") !== "low";
     openReport.disabled = !canReport;
     if (String(data.riskLabel || "low") === "low") {
       openReport.textContent = "Reporting disabled for safe links";
-    } else if (state.reportedUrls.has(normalized)) {
-      openReport.textContent = "Already reported";
     } else {
       openReport.textContent = "Report This URL";
     }
@@ -383,18 +378,8 @@ reportForm.addEventListener("submit", async (event) => {
       auth: true,
       body: JSON.stringify(payload),
     });
-    const normalized = state.lastScannedUrl || payload.url;
-    state.reportedUrls.add(normalized);
-
-    if (report.status === "exists" || report.deduped) {
-      showToast("Already reported — thanks!");
-    } else {
-      await refreshReportCount();
-      showToast("Report submitted. Thank you.");
-    }
-
-    openReport.disabled = true;
-    openReport.textContent = "Already reported";
+    await refreshReportCount();
+    showToast(report.message || "Report submitted. Frequency updated.");
 
     reportModal.close();
     reportForm.reset();

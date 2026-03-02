@@ -129,7 +129,7 @@ function updatePagination() {
 
 function renderRows(items) {
   if (!items.length) {
-    feedBody.innerHTML = '<tr><td colspan="7">No reports match your filters.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="8">No reports match your filters.</td></tr>';
     return;
   }
 
@@ -141,6 +141,7 @@ function renderRows(items) {
         <td>${escapeHtml(item.url)}</td>
         <td>${escapeHtml(item.reason)}</td>
         <td>${escapeHtml(String(item.suspiciousPercent ?? "-"))}%</td>
+        <td>${escapeHtml(String(item.frequency ?? 1))}</td>
         <td>${escapeHtml(item.reporter || "user")}</td>
         <td title="${escapeHtml(item.whySuspicious || "-")}">${escapeHtml(
           truncate(item.whySuspicious || "-", 96)
@@ -167,7 +168,7 @@ async function loadReports() {
     renderRows(state.lastItems);
     updatePagination();
   } catch {
-    feedBody.innerHTML = '<tr><td colspan="7">Could not load reports.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="8">Could not load reports.</td></tr>';
   }
 }
 
@@ -210,6 +211,7 @@ async function openDetail(reportId) {
     setText("detail-normalized", detail.normalizedUrl);
     setText("detail-reason", detail.reason);
     setText("detail-suspicious", `${detail.suspiciousPercent ?? "-"}%`);
+    setText("detail-frequency", String(detail.frequency ?? 1));
     setText("detail-reporter", detail.reporter || "user");
     setText("detail-why", detail.whySuspicious || "-");
     setText("detail-evidence", detail.evidence || "-");

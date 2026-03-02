@@ -438,6 +438,17 @@ a.ghost-btn {
   gap: 0.8rem;
 }
 
+.install-steps {
+  margin: 0.8rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.install-steps li {
+  margin: 0.28rem 0;
+}
+
 .tip-card {
   border: 1px solid #ffffff22;
   background: var(--surface-soft);
