@@ -235,6 +235,12 @@ button:disabled {
   border: 1px solid var(--ghost-border);
 }
 
+a.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .scan-output {
   margin-top: 1.2rem;
   display: grid;
@@ -538,6 +544,54 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+.feed-layout {
+  width: min(1240px, 95vw);
+}
+
+.feed-controls {
+  padding: 1rem 1.25rem;
+}
+
+.feed-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto;
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.feed-filters label {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.feed-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feed-row {
+  cursor: pointer;
+}
+
+.feed-row:hover {
+  background: #ffffff10;
+}
+
+.feed-pagination {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.feed-detail {
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -661,5 +715,13 @@ dialog::backdrop {
   .gauge-inner {
     width: 134px;
     height: 134px;
+  }
+
+  .feed-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .feed-actions {
+    justify-content: stretch;
   }
 }

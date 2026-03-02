@@ -61,6 +61,51 @@ Case B: Existing recent report (deduped)
 }
 ```
 
+## GET /api/reports
+
+Query params:
+- `query` (optional): substring match on `url` or `normalizedUrl`
+- `reason` (optional): exact reason filter
+- `since` (optional): `24h`, `7d`, `all`, or ISO timestamp
+- `page` (default `1`)
+- `pageSize` (default `25`, max `100`)
+
+Response:
+```json
+{
+  "items": [
+    {
+      "reportId": "uuid",
+      "timestamp": "2026-03-02T00:00:00+00:00",
+      "url": "http://secure-bank-login.ru/verify/account",
+      "normalizedUrl": "http://secure-bank-login.ru/verify/account",
+      "reason": "phishing_or_scam",
+      "reporter": "user",
+      "user": "anonymous"
+    }
+  ],
+  "page": 1,
+  "pageSize": 25,
+  "total": 137
+}
+```
+
+## GET /api/reports/{reportId}
+
+Response:
+```json
+{
+  "reportId": "uuid",
+  "timestamp": "2026-03-02T00:00:00+00:00",
+  "url": "http://secure-bank-login.ru/verify/account",
+  "normalizedUrl": "http://secure-bank-login.ru/verify/account",
+  "reason": "phishing_or_scam",
+  "reporter": "user",
+  "user": "anonymous",
+  "notes": "optional"
+}
+```
+
 Notes:
 - Reports are saved as JSONL in `./reports/reports.jsonl`.
 - Dedupe key is canonical `normalizedUrl`.

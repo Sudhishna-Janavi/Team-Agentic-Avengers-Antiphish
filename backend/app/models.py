@@ -52,3 +52,31 @@ class ReportResponse(BaseModel):
     timestamp: datetime
     deduped: bool
     message: str | None = None
+
+
+class ReportListItem(BaseModel):
+    reportId: str
+    timestamp: datetime
+    url: str
+    normalizedUrl: str
+    reason: str
+    reporter: str
+    user: str
+
+
+class ReportsListResponse(BaseModel):
+    items: list[ReportListItem]
+    page: int
+    pageSize: int
+    total: int
+
+
+class ReportDetailResponse(BaseModel):
+    reportId: str
+    timestamp: datetime
+    url: str
+    normalizedUrl: str
+    reason: str
+    reporter: str
+    user: str
+    notes: str | None = None

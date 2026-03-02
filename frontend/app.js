@@ -21,7 +21,6 @@ const tips = [
 
 const state = {
   lastScannedUrl: "",
-  reports: [],
   reportedUrls: new Set(),
 };
 
@@ -40,8 +39,6 @@ const reportModal = document.getElementById("report-modal");
 const reportForm = document.getElementById("report-form");
 const cancelReport = document.getElementById("cancel-report");
 const reportUrl = document.getElementById("report-url");
-const refreshIntel = document.getElementById("refresh-intel");
-const intelBody = document.getElementById("intel-body");
 const confidencePill = document.getElementById("confidence-pill");
 const explainSummary = document.getElementById("explain-summary");
 const contributors = document.getElementById("contributors");
@@ -126,41 +123,22 @@ function showToast(message) {
   }, 2200);
 }
 
-function updateLocalReportCount() {
-  reportCount.textContent = `Reports: ${state.reports.length}`;
-  kpiTotal.textContent = String(state.reports.length);
-}
-
-function renderLocalIntel() {
-  if (!state.reports.length) {
-    intelBody.innerHTML = '<tr><td colspan="5">No reports yet.</td></tr>';
-    return;
+async function refreshReportCount() {
+  try {
+    const data = await fetchJson("/api/reports?page=1&pageSize=1");
+    const total = Number(data.total || 0);
+    reportCount.textContent = `Reports: ${total}`;
+    kpiTotal.textContent = String(total);
+  } catch {
+    reportCount.textContent = "Reports: unknown";
+    kpiTotal.textContent = "-";
   }
-
-  intelBody.innerHTML = state.reports
-    .slice()
-    .reverse()
-    .map(
-      (item) => `
-      <tr>
-        <td>${escapeHtml(item.time)}</td>
-        <td>${escapeHtml(item.url)}</td>
-        <td>${escapeHtml(item.reason)}</td>
-        <td>${escapeHtml(item.reporterType)}</td>
-        <td>${escapeHtml(item.reporterUser)}</td>
-      </tr>
-    `
-    )
-    .join("");
 }
 
 function setLegacySectionsState() {
   streamStatus.textContent = "Stream: unavailable in minimal backend";
   streamStatus.style.borderColor = "#5f7f98";
   alertsList.innerHTML = "<li>Live stream is disabled in this minimal backend.</li>";
-
-  refreshIntel.disabled = true;
-  refreshIntel.textContent = "Local Feed";
 
   refreshDashboard.disabled = true;
   refreshDashboard.textContent = "Local Only";
@@ -279,8 +257,6 @@ reportForm.addEventListener("submit", async (event) => {
 
   const form = new FormData(reportForm);
   const userReason = String(form.get("reason") || "").trim();
-  const reporterType = String(form.get("reporter_type") || "user").trim();
-  const reporterName = String(form.get("reporter_name") || "").trim() || "anonymous";
   const evidence = String(form.get("evidence") || "").trim();
 
   const notesParts = [userReason, evidence].filter(Boolean);
@@ -300,17 +276,8 @@ reportForm.addEventListener("submit", async (event) => {
 
     if (report.status === "exists" || report.deduped) {
       showToast("Already reported — thanks!");
-    } else if (!state.reports.some((item) => item.id === report.reportId)) {
-      state.reports.push({
-        id: report.reportId,
-        time: new Date(report.timestamp).toISOString().slice(0, 19).replace("T", " "),
-        url: payload.url,
-        reason: payload.reason,
-        reporterType,
-        reporterUser: reporterName,
-      });
-      updateLocalReportCount();
-      renderLocalIntel();
+    } else {
+      await refreshReportCount();
       showToast("Report submitted. Thank you.");
     }
 
@@ -345,8 +312,7 @@ demoButtons.forEach((btn) => {
 (async function boot() {
   setGauge(0);
   riskLabel.textContent = "Awaiting Scan";
-  updateLocalReportCount();
-  renderLocalIntel();
+  await refreshReportCount();
   setLegacySectionsState();
   await checkHealth();
 })();

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Antiphish+ | Community Feed</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
+    <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
+    <div class="grid-overlay" aria-hidden="true"></div>
+
+    <main class="layout feed-layout">
+      <header class="hero card reveal">
+        <p class="eyebrow">Community Reports</p>
+        <h1>Community Intel Feed</h1>
+        <p class="hero-copy">
+          Search and review reported links quickly with server-side filters and pagination.
+        </p>
+        <div class="status-row">
+          <a class="ghost-btn" href="/">Back to Scanner</a>
+          <span id="feed-total" class="status-pill">Total: 0</span>
+        </div>
+      </header>
+
+      <section class="card feed-controls reveal">
+        <div class="feed-filters">
+          <div>
+            <label for="filter-query">Search URL/domain</label>
+            <input id="filter-query" type="text" placeholder="Filter by URL or domain..." />
+          </div>
+          <div>
+            <label for="filter-reason">Reason</label>
+            <select id="filter-reason">
+              <option value="">All</option>
+              <option value="phishing_or_scam">phishing_or_scam</option>
+              <option value="malware">malware</option>
+              <option value="impersonation">impersonation</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <div>
+            <label for="filter-since">Time</label>
+            <select id="filter-since">
+              <option value="24h">Last 24h</option>
+              <option value="7d">Last 7 days</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div class="feed-actions">
+            <button id="clear-filters" class="ghost-btn" type="button">Clear filters</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="intel card reveal">
+        <div class="intel-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Time (UTC)</th>
+                <th>URL</th>
+                <th>Reason</th>
+                <th>Reporter</th>
+                <th>User</th>
+              </tr>
+            </thead>
+            <tbody id="feed-body">
+              <tr>
+                <td colspan="5">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="feed-pagination">
+          <button id="prev-page" class="ghost-btn" type="button">Previous</button>
+          <span id="page-info" class="status-pill">Page 1</span>
+          <button id="next-page" class="ghost-btn" type="button">Next</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="report-detail-modal">
+      <article class="feed-detail">
+        <div class="intel-head">
+          <h3>Report Detail</h3>
+          <button id="close-detail" class="ghost-btn" type="button">Close</button>
+        </div>
+
+        <p><strong>ID:</strong> <span id="detail-id">-</span></p>
+        <p><strong>Timestamp:</strong> <span id="detail-time">-</span></p>
+        <p>
+          <strong>URL:</strong>
+          <span id="detail-url">-</span>
+          <button id="copy-url" class="ghost-btn" type="button">Copy URL</button>
+        </p>
+        <p><strong>Normalized URL:</strong> <span id="detail-normalized">-</span></p>
+        <p><strong>Reason:</strong> <span id="detail-reason">-</span></p>
+        <p><strong>Reporter:</strong> <span id="detail-reporter">-</span></p>
+        <p><strong>User:</strong> <span id="detail-user">-</span></p>
+        <p><strong>Notes:</strong> <span id="detail-notes">-</span></p>
+        <div>
+          <h4>Analysis Signals</h4>
+          <ul id="detail-signals" class="reason-list">
+            <li>Loading...</li>
+          </ul>
+        </div>
+      </article>
+    </dialog>
+
+    <script src="./feed.js" defer></script>
+  </body>
+</html>

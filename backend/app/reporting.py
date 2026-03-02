@@ -5,9 +5,8 @@ import json
 import os
 import threading
 import uuid
-from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .models import ReportRequest
 
@@ -27,9 +26,36 @@ class IndexEntry:
     timestamp: datetime
 
 
-class JsonlReportStore:
-    _BOOTSTRAP_MAX_LINES = 5000
+@dataclass
+class StoredReport:
+    report_id: str
+    timestamp: datetime
+    url: str
+    normalized_url: str
+    reason: str
+    reporter: str
+    user: str
+    notes: str | None
+    client_ip_hash: str
 
+    def to_list_item(self) -> dict:
+        return {
+            "reportId": self.report_id,
+            "timestamp": self.timestamp,
+            "url": self.url,
+            "normalizedUrl": self.normalized_url,
+            "reason": self.reason,
+            "reporter": self.reporter,
+            "user": self.user,
+        }
+
+    def to_detail(self) -> dict:
+        data = self.to_list_item()
+        data["notes"] = self.notes
+        return data
+
+
+class JsonlReportStore:
     def __init__(
         self,
         reports_dir: str,
@@ -43,7 +69,8 @@ class JsonlReportStore:
         self._now = now_provider or (lambda: datetime.now(timezone.utc))
         self._lock = threading.Lock()
         self._recent_index: dict[str, IndexEntry] = {}
-        self._bootstrap_recent_index()
+        self._reports: list[StoredReport] = []
+        self._bootstrap_from_disk()
 
     @property
     def report_file(self) -> str:
@@ -52,6 +79,11 @@ class JsonlReportStore:
     def _hash_ip(self, ip: str) -> str:
         payload = f"{self.salt}:{ip}".encode("utf-8")
         return hashlib.sha256(payload).hexdigest()
+
+    def _to_utc(self, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
     def _prune_index(self, now: datetime) -> None:
         cutoff = now.timestamp() - self.dedupe_seconds
@@ -63,37 +95,59 @@ class JsonlReportStore:
         for url in stale:
             self._recent_index.pop(url, None)
 
-    def _bootstrap_recent_index(self) -> None:
+    def _parse_record(self, row: dict) -> StoredReport | None:
+        report_id = str(row.get("reportId") or "").strip()
+        timestamp_raw = str(row.get("timestamp") or "").strip()
+        normalized_url = str(row.get("normalizedUrl") or "").strip()
+        url = str(row.get("url") or "").strip()
+        reason = str(row.get("reason") or "").strip()
+        if not (report_id and timestamp_raw and normalized_url and url and reason):
+            return None
+
+        ts = self._to_utc(datetime.fromisoformat(timestamp_raw))
+        return StoredReport(
+            report_id=report_id,
+            timestamp=ts,
+            url=url,
+            normalized_url=normalized_url,
+            reason=reason,
+            reporter=str(row.get("reporter") or "user").strip() or "user",
+            user=str(row.get("user") or "anonymous").strip() or "anonymous",
+            notes=row.get("notes"),
+            client_ip_hash=str(row.get("clientIpHash") or "").strip(),
+        )
+
+    def _bootstrap_from_disk(self) -> None:
         path = self.report_file
         if not os.path.exists(path):
             return
 
         cutoff = self._now().timestamp() - self.dedupe_seconds
         with open(path, "r", encoding="utf-8") as handle:
-            lines = deque(handle, maxlen=self._BOOTSTRAP_MAX_LINES)
-
-        for line in reversed(lines):
-            try:
-                row = json.loads(line)
-                normalized_url = str(row.get("normalizedUrl") or "").strip()
-                report_id = str(row.get("reportId") or "").strip()
-                timestamp_raw = str(row.get("timestamp") or "").strip()
-                if not (normalized_url and report_id and timestamp_raw):
+            for line in handle:
+                try:
+                    row = json.loads(line)
+                    report = self._parse_record(row)
+                    if not report:
+                        continue
+                    self._reports.append(report)
+                except Exception:
                     continue
 
-                parsed_ts = datetime.fromisoformat(timestamp_raw)
-                if parsed_ts.tzinfo is None:
-                    parsed_ts = parsed_ts.replace(tzinfo=timezone.utc)
-                if parsed_ts.timestamp() < cutoff:
-                    continue
-                if normalized_url in self._recent_index:
-                    continue
-                self._recent_index[normalized_url] = IndexEntry(
-                    report_id=report_id,
-                    timestamp=parsed_ts,
-                )
-            except Exception:
+        for report in reversed(self._reports):
+            if report.timestamp.timestamp() < cutoff:
                 continue
+            if report.normalized_url in self._recent_index:
+                continue
+            self._recent_index[report.normalized_url] = IndexEntry(
+                report_id=report.report_id,
+                timestamp=report.timestamp,
+            )
+
+    def _write_record(self, record: dict) -> None:
+        os.makedirs(self.reports_dir, exist_ok=True)
+        with open(self.report_file, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=True) + "\n")
 
     def write_report(
         self,
@@ -103,7 +157,6 @@ class JsonlReportStore:
     ) -> ReportResult:
         now = self._now()
 
-        os.makedirs(self.reports_dir, exist_ok=True)
         with self._lock:
             self._prune_index(now)
             existing = self._recent_index.get(normalized_url)
@@ -117,8 +170,7 @@ class JsonlReportStore:
                 )
 
             report_id = str(uuid.uuid4())
-            timestamp = now
-
+            timestamp = self._to_utc(now)
             record = {
                 "reportId": report_id,
                 "timestamp": timestamp.isoformat(),
@@ -126,14 +178,19 @@ class JsonlReportStore:
                 "normalizedUrl": normalized_url,
                 "reason": payload.reason,
                 "notes": payload.notes,
+                "reporter": "user",
+                "user": "anonymous",
                 "clientIpHash": self._hash_ip(client_ip),
             }
-            with open(self.report_file, "a", encoding="utf-8") as handle:
-                handle.write(json.dumps(record, ensure_ascii=True) + "\n")
-            self._recent_index[normalized_url] = IndexEntry(
-                report_id=report_id,
-                timestamp=timestamp,
-            )
+            self._write_record(record)
+
+            report = self._parse_record(record)
+            if report is not None:
+                self._reports.append(report)
+                self._recent_index[normalized_url] = IndexEntry(
+                    report_id=report_id,
+                    timestamp=timestamp,
+                )
 
             return ReportResult(
                 status="ok",
@@ -141,3 +198,67 @@ class JsonlReportStore:
                 timestamp=timestamp,
                 deduped=False,
             )
+
+    def _resolve_since_cutoff(self, since: str | None) -> datetime | None:
+        if not since or since == "all":
+            return None
+
+        now = self._to_utc(self._now())
+        lowered = since.lower()
+        if lowered == "24h":
+            return now - timedelta(hours=24)
+        if lowered == "7d":
+            return now - timedelta(days=7)
+
+        parsed = datetime.fromisoformat(since)
+        return self._to_utc(parsed)
+
+    def list_reports(
+        self,
+        query: str | None,
+        reason: str | None,
+        since: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict], int]:
+        with self._lock:
+            reports = list(reversed(self._reports))
+
+        query_lower = (query or "").strip().lower()
+        reason_filter = (reason or "").strip().lower()
+        cutoff = self._resolve_since_cutoff(since)
+
+        filtered: list[StoredReport] = []
+        for report in reports:
+            if reason_filter and report.reason.lower() != reason_filter:
+                continue
+            if cutoff and report.timestamp < cutoff:
+                continue
+            if query_lower:
+                haystack = f"{report.url} {report.normalized_url}".lower()
+                if query_lower not in haystack:
+                    continue
+            filtered.append(report)
+
+        # Extra safety for legacy data that may contain duplicates.
+        deduped_items: list[StoredReport] = []
+        seen_latest: dict[str, datetime] = {}
+        for item in filtered:
+            latest = seen_latest.get(item.normalized_url)
+            if latest and (latest - item.timestamp).total_seconds() <= self.dedupe_seconds:
+                continue
+            seen_latest[item.normalized_url] = item.timestamp
+            deduped_items.append(item)
+
+        total = len(deduped_items)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_items = [report.to_list_item() for report in deduped_items[start:end]]
+        return page_items, total
+
+    def get_report(self, report_id: str) -> dict | None:
+        with self._lock:
+            for report in reversed(self._reports):
+                if report.report_id == report_id:
+                    return report.to_detail()
+        return None

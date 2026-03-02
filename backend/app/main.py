@@ -3,13 +3,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import Settings, from_env
-from .models import AnalyzeRequest, AnalyzeResponse, ReportRequest, ReportResponse
+from .models import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    ReportDetailResponse,
+    ReportRequest,
+    ReportResponse,
+    ReportsListResponse,
+)
 from .rate_limit import InMemoryRateLimiter
 from .reporting import JsonlReportStore
 from .scoring import analyze_url, normalize_url
@@ -115,6 +122,34 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
             deduped=result.deduped,
             message=result.message,
         )
+
+    @app.get("/api/reports", response_model=ReportsListResponse)
+    def list_reports(
+        query: str | None = Query(default=None),
+        reason: str | None = Query(default=None),
+        since: str | None = Query(default="all"),
+        page: int = Query(default=1, ge=1),
+        pageSize: int = Query(default=25, ge=1, le=100),
+    ) -> ReportsListResponse:
+        try:
+            items, total = report_store.list_reports(
+                query=query,
+                reason=reason,
+                since=since,
+                page=page,
+                page_size=pageSize,
+            )
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail=str(err)) from err
+
+        return ReportsListResponse(items=items, page=page, pageSize=pageSize, total=total)
+
+    @app.get("/api/reports/{report_id}", response_model=ReportDetailResponse)
+    def get_report_detail(report_id: str) -> ReportDetailResponse:
+        item = report_store.get_report(report_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Report not found.")
+        return ReportDetailResponse(**item)
 
     return app
 

@@ -165,3 +165,59 @@ def test_same_url_after_dedupe_window_creates_new_report(tmp_path: Path) -> None
     assert second.json()["status"] == "ok"
     assert second.json()["deduped"] is False
     assert second.json()["reportId"] != first.json()["reportId"]
+
+
+def test_reports_endpoint_filters_and_paginates(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    rows = [
+        {"url": "https://news.example.com/update", "reason": "other"},
+        {"url": "https://secure-bank-login.ru/verify/account", "reason": "phishing_or_scam"},
+        {"url": "https://malware.bad.site/download", "reason": "malware"},
+    ]
+    for row in rows:
+        response = client.post("/api/report", json=row)
+        assert response.status_code == 200
+
+    by_reason = client.get("/api/reports?reason=malware&page=1&pageSize=25")
+    assert by_reason.status_code == 200
+    body = by_reason.json()
+    assert body["total"] == 1
+    assert body["items"][0]["reason"] == "malware"
+
+    by_query = client.get("/api/reports?query=secure-bank-login&page=1&pageSize=25")
+    assert by_query.status_code == 200
+    body = by_query.json()
+    assert body["total"] == 1
+    assert "secure-bank-login" in body["items"][0]["url"]
+
+    paged = client.get("/api/reports?page=1&pageSize=2")
+    assert paged.status_code == 200
+    body = paged.json()
+    assert body["page"] == 1
+    assert body["pageSize"] == 2
+    assert body["total"] == 3
+    assert len(body["items"]) == 2
+
+    paged_2 = client.get("/api/reports?page=2&pageSize=2")
+    assert paged_2.status_code == 200
+    assert len(paged_2.json()["items"]) == 1
+
+
+def test_report_detail_endpoint_returns_full_report(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    created = client.post(
+        "/api/report",
+        json={
+            "url": "https://example.com/abc",
+            "reason": "phishing_or_scam",
+            "notes": "full detail check",
+        },
+    )
+    report_id = created.json()["reportId"]
+
+    detail = client.get(f"/api/reports/{report_id}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["reportId"] == report_id
+    assert body["notes"] == "full detail check"
+    assert body["normalizedUrl"] == "https://example.com/abc"
