@@ -131,7 +131,7 @@ def test_report_writes_jsonl(tmp_path: Path) -> None:
     assert row["user"] == "user@test.local"
 
 
-def test_duplicate_report_returns_exists(tmp_path: Path) -> None:
+def test_duplicate_report_creates_new_report_and_increases_total(tmp_path: Path) -> None:
     client = make_client(tmp_path)
     headers = login_headers(client, "user@test.local", "user12345")
     payload = {
@@ -153,11 +153,17 @@ def test_duplicate_report_returns_exists(tmp_path: Path) -> None:
     body1 = first.json()
     body2 = second.json()
     assert body1["status"] == "ok"
-    assert body2["status"] == "exists"
-    assert body2["reportId"] == body1["reportId"]
+    assert body2["status"] == "ok"
+    assert body2["reportId"] != body1["reportId"]
+
+    listed = client.get("/api/reports?page=1&pageSize=25")
+    assert listed.status_code == 200
+    listed_body = listed.json()
+    assert listed_body["total"] == 2
+    assert listed_body["items"][0]["frequency"] == 2
 
 
-def test_same_url_after_dedupe_window_creates_new_report(tmp_path: Path) -> None:
+def test_same_url_after_time_window_still_creates_new_report(tmp_path: Path) -> None:
     now = datetime(2026, 3, 2, 0, 0, tzinfo=timezone.utc)
     clock = {"value": now}
 

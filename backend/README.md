@@ -28,6 +28,7 @@ Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ## Endpoints
 - `GET /api/health`
+- `POST /api/auth/signup`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
@@ -44,23 +45,22 @@ Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - `whySuspicious` (required, min length 5)
 - `evidence` (optional)
 
-All reports are anonymous (`user: anonymous` in this MVP).
-
 Each report stores `suspiciousPercent` computed from analyzer risk score (`riskScore`).
+Repeated reports on the same URL are accepted and contribute to URL `frequency` in the community feed.
 
 ## Login roles
 - `user`: can add reports
 - `admin`: can add reports and remove reports from feed
 
 Configure credentials in `.env`:
-- `USER_LOGIN_EMAIL`, `USER_LOGIN_PASSWORD`
-- `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD`
+- `USER_LOGIN_EMAIL`, `USER_LOGIN_PASSWORD` (default seeded user)
+- `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD` (default seeded admin)
+- `POST /api/auth/signup` also allows creating additional user accounts (role=`user`)
 
 ## Feed filtering and pagination
 `GET /api/reports` supports:
 - `query`: URL/domain substring search
 - `reason`: exact reason filter
-- `user`: exact user filter
 - `since`: `24h`, `7d`, `all`, or ISO timestamp
 - `page` / `pageSize`
 

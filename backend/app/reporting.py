@@ -51,6 +51,7 @@ class StoredReport:
             "user": "private",
             "whySuspicious": self.why_suspicious,
             "suspiciousPercent": self.suspicious_percent,
+            "frequency": 1,
         }
 
     def to_detail(self) -> dict:
@@ -189,17 +190,6 @@ class JsonlReportStore:
         now = self._now()
 
         with self._lock:
-            self._prune_index(now)
-            existing = self._recent_index.get(normalized_url)
-            if existing:
-                return ReportResult(
-                    status="exists",
-                    report_id=existing.report_id,
-                    timestamp=existing.timestamp,
-                    deduped=True,
-                    message="This URL was already reported recently.",
-                )
-
             report_id = str(uuid.uuid4())
             timestamp = self._to_utc(now)
             record = {
@@ -220,16 +210,14 @@ class JsonlReportStore:
             report = self._parse_record(record)
             if report is not None:
                 self._reports.append(report)
-                self._recent_index[normalized_url] = IndexEntry(
-                    report_id=report_id,
-                    timestamp=timestamp,
-                )
+                self._recent_index[normalized_url] = IndexEntry(report_id=report_id, timestamp=timestamp)
 
             return ReportResult(
                 status="ok",
                 report_id=report_id,
                 timestamp=timestamp,
                 deduped=False,
+                message="Report submitted. Frequency updated.",
             )
 
     def delete_report(self, report_id: str) -> bool:
@@ -291,25 +279,28 @@ class JsonlReportStore:
                     continue
             filtered.append(report)
 
-        # Extra safety for legacy data that may contain duplicates.
-        deduped_items: list[StoredReport] = []
-        seen_latest: dict[str, datetime] = {}
+        frequency_map: dict[str, int] = {}
         for item in filtered:
-            latest = seen_latest.get(item.normalized_url)
-            if latest and (latest - item.timestamp).total_seconds() <= self.dedupe_seconds:
-                continue
-            seen_latest[item.normalized_url] = item.timestamp
-            deduped_items.append(item)
+            frequency_map[item.normalized_url] = frequency_map.get(item.normalized_url, 0) + 1
 
-        total = len(deduped_items)
+        total = len(filtered)
         start = (page - 1) * page_size
         end = start + page_size
-        page_items = [report.to_list_item() for report in deduped_items[start:end]]
+        page_items: list[dict] = []
+        for report in filtered[start:end]:
+            item = report.to_list_item()
+            item["frequency"] = frequency_map.get(report.normalized_url, 1)
+            page_items.append(item)
         return page_items, total, available_users
 
     def get_report(self, report_id: str) -> dict | None:
         with self._lock:
+            frequency_map: dict[str, int] = {}
+            for report in self._reports:
+                frequency_map[report.normalized_url] = frequency_map.get(report.normalized_url, 0) + 1
             for report in reversed(self._reports):
                 if report.report_id == report_id:
-                    return report.to_detail()
+                    detail = report.to_detail()
+                    detail["frequency"] = frequency_map.get(report.normalized_url, 1)
+                    return detail
         return None

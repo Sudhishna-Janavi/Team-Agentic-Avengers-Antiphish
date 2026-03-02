@@ -55,14 +55,14 @@ Case A: New report
 }
 ```
 
-Case B: Existing recent report (deduped)
+Case B: Repeated report on the same URL
 ```json
 {
-  "status": "exists",
-  "reportId": "uuid_of_existing",
+  "status": "ok",
+  "reportId": "new_uuid",
   "timestamp": "2026-03-02T00:00:00+00:00",
-  "deduped": true,
-  "message": "This URL was already reported recently."
+  "deduped": false,
+  "message": "Report submitted. Frequency updated."
 }
 ```
 
@@ -73,7 +73,6 @@ Saved report fields include: `reason`, `whySuspicious`, `evidence`, and `suspici
 Query params:
 - `query` (optional): substring match on `url` or `normalizedUrl`
 - `reason` (optional): exact reason filter
-- `user` (optional): exact user filter (e.g., `anonymous`)
 - `since` (optional): `24h`, `7d`, `all`, or ISO timestamp
 - `page` (default `1`)
 - `pageSize` (default `25`, max `100`)
@@ -89,15 +88,16 @@ Response:
       "normalizedUrl": "http://secure-bank-login.ru/verify/account",
       "reason": "phishing_or_scam",
       "reporter": "user",
-      "user": "anonymous",
+      "user": "private",
       "whySuspicious": "Looks like fake DBS login page with urgent wording",
-      "suspiciousPercent": 92
+      "suspiciousPercent": 92,
+      "frequency": 5
     }
   ],
   "page": 1,
   "pageSize": 25,
   "total": 137,
-  "availableUsers": ["anonymous"]
+  "availableUsers": []
 }
 ```
 
@@ -112,16 +112,16 @@ Response:
   "normalizedUrl": "http://secure-bank-login.ru/verify/account",
   "reason": "phishing_or_scam",
   "reporter": "user",
-  "user": "anonymous",
+  "user": "private",
   "whySuspicious": "Looks like fake DBS login page with urgent wording",
   "evidence": "Received from SMS claiming account suspension",
-  "suspiciousPercent": 92
+  "suspiciousPercent": 92,
+  "frequency": 5
 }
 ```
 
 Notes:
 - Reports are saved as JSONL in `./reports/reports.jsonl`.
-- Dedupe key is canonical `normalizedUrl`.
-- Default dedupe window: `REPORT_DEDUPE_SECONDS=86400` (24h).
+- Repeated reports are accepted and increase URL frequency.
 - Raw IP is not stored. Only salted SHA-256 hash (`clientIpHash`) is written.
 - URL content is never fetched. Analysis is URL-string only.
