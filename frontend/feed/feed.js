@@ -1,11 +1,17 @@
 const API_BASE = window.__ANTIPHISH_CONFIG__?.API_BASE || "http://127.0.0.1:8000";
 const PAGE_SIZE = 25;
+const AUTH_TOKEN_KEY = "antiphish_token";
+const AUTH_ROLE_KEY = "antiphish_role";
+const AUTH_EMAIL_KEY = "antiphish_email";
 
 const state = {
   page: 1,
   total: 0,
   lastItems: [],
   debounceId: null,
+  authToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
+  authRole: localStorage.getItem(AUTH_ROLE_KEY) || "",
+  authEmail: localStorage.getItem(AUTH_EMAIL_KEY) || "",
 };
 
 const feedBody = document.getElementById("feed-body");
@@ -22,6 +28,11 @@ const pageInfo = document.getElementById("page-info");
 const detailModal = document.getElementById("report-detail-modal");
 const closeDetailBtn = document.getElementById("close-detail");
 const copyUrlBtn = document.getElementById("copy-url");
+const feedAuthStatus = document.getElementById("feed-auth-status");
+const feedAuthEmail = document.getElementById("feed-auth-email");
+const feedAuthPassword = document.getElementById("feed-auth-password");
+const feedAuthLoginBtn = document.getElementById("feed-auth-login");
+const feedAuthLogoutBtn = document.getElementById("feed-auth-logout");
 
 function q(id) {
   return document.getElementById(id);
@@ -46,13 +57,55 @@ function truncate(value, maxLen = 100) {
   return `${text.slice(0, maxLen - 1)}…`;
 }
 
-async function fetchJson(path) {
-  const res = await fetch(`${API_BASE}${path}`);
+async function fetchJson(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (options.auth === true && state.authToken) {
+    headers.Authorization = `Bearer ${state.authToken}`;
+  }
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Request failed: ${res.status}`);
   }
   return res.json();
+}
+
+function setAuthState({ token = "", role = "", email = "" }) {
+  state.authToken = token;
+  state.authRole = role;
+  state.authEmail = email;
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_ROLE_KEY, role);
+    localStorage.setItem(AUTH_EMAIL_KEY, email);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_ROLE_KEY);
+    localStorage.removeItem(AUTH_EMAIL_KEY);
+  }
+  if (state.authToken) {
+    feedAuthStatus.textContent = `Logged in: ${state.authRole} (${state.authEmail})`;
+    feedAuthStatus.style.borderColor = "#8f8f8f";
+  } else {
+    feedAuthStatus.textContent = "Not logged in";
+    feedAuthStatus.style.borderColor = "#5e5e5e";
+  }
+}
+
+async function hydrateSession() {
+  if (!state.authToken) {
+    setAuthState({});
+    return;
+  }
+  try {
+    const me = await fetchJson("/api/auth/me", { auth: true });
+    setAuthState({ token: state.authToken, role: me.role, email: me.email });
+  } catch {
+    setAuthState({});
+  }
 }
 
 function buildListQuery() {
@@ -82,7 +135,7 @@ function updatePagination() {
 
 function renderRows(items) {
   if (!items.length) {
-    feedBody.innerHTML = '<tr><td colspan="7">No reports match your filters.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="8">No reports match your filters.</td></tr>';
     return;
   }
 
@@ -99,6 +152,13 @@ function renderRows(items) {
         <td title="${escapeHtml(item.whySuspicious || "-")}">${escapeHtml(
           truncate(item.whySuspicious || "-", 96)
         )}</td>
+        <td>${
+          state.authRole === "admin"
+            ? `<button class="danger-btn delete-report-btn" data-report-id="${escapeHtml(
+                item.reportId
+              )}" type="button">Delete</button>`
+            : "-"
+        }</td>
       </tr>
     `
     )
@@ -129,7 +189,7 @@ async function loadReports() {
     renderRows(state.lastItems);
     updatePagination();
   } catch {
-    feedBody.innerHTML = '<tr><td colspan="7">Could not load reports.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="8">Could not load reports.</td></tr>';
   }
 }
 
@@ -186,6 +246,29 @@ async function openDetail(reportId) {
 }
 
 feedBody.addEventListener("click", (event) => {
+  const deleteBtn = event.target.closest(".delete-report-btn");
+  if (deleteBtn) {
+    const reportId = deleteBtn.dataset.reportId || "";
+    if (!reportId) return;
+    if (state.authRole !== "admin") {
+      alert("Admin login required to delete reports.");
+      return;
+    }
+    if (!confirm("Delete this report from community feed?")) return;
+    (async () => {
+      try {
+        await fetchJson(`/api/reports/${encodeURIComponent(reportId)}`, {
+          method: "DELETE",
+          auth: true,
+        });
+        await loadReports();
+      } catch (error) {
+        alert(`Delete failed: ${error.message}`);
+      }
+    })();
+    return;
+  }
+
   const row = event.target.closest("tr[data-report-id]");
   if (!row) return;
   openDetail(row.dataset.reportId);
@@ -254,4 +337,39 @@ closeDetailBtn.addEventListener("click", () => {
   detailModal.close();
 });
 
-loadReports();
+feedAuthLoginBtn.addEventListener("click", async () => {
+  const email = feedAuthEmail.value.trim();
+  const password = feedAuthPassword.value;
+  if (!email || !password) {
+    alert("Enter email and password.");
+    return;
+  }
+  try {
+    const data = await fetchJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    setAuthState({ token: data.token, role: data.role, email: data.email });
+    await loadReports();
+  } catch (error) {
+    alert(`Login failed: ${error.message}`);
+  }
+});
+
+feedAuthLogoutBtn.addEventListener("click", async () => {
+  if (state.authToken) {
+    try {
+      await fetchJson("/api/auth/logout", { method: "POST", auth: true });
+    } catch {
+      // ignore
+    }
+  }
+  setAuthState({});
+  await loadReports();
+});
+
+(async function boot() {
+  await hydrateSession();
+  await loadReports();
+})();

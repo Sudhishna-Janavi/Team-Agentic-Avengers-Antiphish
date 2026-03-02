@@ -27,6 +27,13 @@
         <div class="status-row">
           <a class="ghost-btn" href="/">Back to Scanner</a>
           <span id="feed-total" class="status-pill">Total: 0</span>
+          <span id="feed-auth-status" class="status-pill">Not logged in</span>
+        </div>
+        <div class="auth-row">
+          <input id="feed-auth-email" type="email" placeholder="Email" />
+          <input id="feed-auth-password" type="password" placeholder="Password" />
+          <button id="feed-auth-login" type="button">Login</button>
+          <button id="feed-auth-logout" class="ghost-btn" type="button">Logout</button>
         </div>
       </header>
 
@@ -79,11 +86,12 @@
                 <th>Reporter</th>
                 <th>User</th>
                 <th>Why suspicious</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="feed-body">
               <tr>
-                <td colspan="7">Loading...</td>
+                <td colspan="8">Loading...</td>
               </tr>
             </tbody>
           </table>

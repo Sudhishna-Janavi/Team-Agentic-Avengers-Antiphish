@@ -29,7 +29,14 @@
         <div class="status-row">
           <span class="status-pill" id="api-status">API: checking...</span>
           <span class="status-pill" id="report-count">Reports: 0</span>
+          <span class="status-pill" id="auth-status">Not logged in</span>
           <a class="ghost-btn" href="/feed/">Community Feed</a>
+        </div>
+        <div class="auth-row">
+          <input id="auth-email" type="email" placeholder="Email" />
+          <input id="auth-password" type="password" placeholder="Password" />
+          <button id="auth-login" type="button">Login</button>
+          <button id="auth-logout" class="ghost-btn" type="button">Logout</button>
         </div>
       </header>
 

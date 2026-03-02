@@ -8,6 +8,27 @@ class AnalyzeRequest(BaseModel):
     url: str = Field(min_length=3, max_length=2048)
 
 
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=200)
+    password: str = Field(min_length=3, max_length=200)
+
+
+class LoginResponse(BaseModel):
+    token: str
+    role: str
+    email: str
+    expiresAt: datetime
+
+
+class MeResponse(BaseModel):
+    email: str
+    role: str
+
+
+class LogoutResponse(BaseModel):
+    status: str
+
+
 class Signal(BaseModel):
     id: str
     severity: str
@@ -69,6 +90,11 @@ class ReportResponse(BaseModel):
     timestamp: datetime
     deduped: bool
     message: str | None = None
+
+
+class DeleteReportResponse(BaseModel):
+    status: str
+    reportId: str
 
 
 class ReportListItem(BaseModel):

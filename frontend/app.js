@@ -1,4 +1,7 @@
 const API_BASE = window.__ANTIPHISH_CONFIG__?.API_BASE || "http://127.0.0.1:8000";
+const AUTH_TOKEN_KEY = "antiphish_token";
+const AUTH_ROLE_KEY = "antiphish_role";
+const AUTH_EMAIL_KEY = "antiphish_email";
 
 const tips = [
   {
@@ -22,6 +25,9 @@ const tips = [
 const state = {
   lastScannedUrl: "",
   reportedUrls: new Set(),
+  authToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
+  authRole: localStorage.getItem(AUTH_ROLE_KEY) || "",
+  authEmail: localStorage.getItem(AUTH_EMAIL_KEY) || "",
 };
 
 const scanForm = document.getElementById("scan-form");
@@ -53,6 +59,11 @@ const alertsList = document.getElementById("alerts-list");
 const streamStatus = document.getElementById("stream-status");
 const demoButtons = document.querySelectorAll(".demo-btn");
 const reportToast = document.getElementById("report-toast");
+const authStatus = document.getElementById("auth-status");
+const authEmailInput = document.getElementById("auth-email");
+const authPasswordInput = document.getElementById("auth-password");
+const authLoginBtn = document.getElementById("auth-login");
+const authLogoutBtn = document.getElementById("auth-logout");
 
 function escapeHtml(value) {
   return String(value)
@@ -151,11 +162,16 @@ function setLegacySectionsState() {
 }
 
 async function fetchJson(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+  if (options.auth === true && state.authToken) {
+    headers.Authorization = `Bearer ${state.authToken}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
+    headers,
     ...options,
   });
 
@@ -174,6 +190,59 @@ async function fetchJson(path, options = {}) {
   }
 
   return res.json();
+}
+
+function setAuthState({ token = "", role = "", email = "" }) {
+  state.authToken = token;
+  state.authRole = role;
+  state.authEmail = email;
+
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_ROLE_KEY, role);
+    localStorage.setItem(AUTH_EMAIL_KEY, email);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_ROLE_KEY);
+    localStorage.removeItem(AUTH_EMAIL_KEY);
+  }
+
+  if (state.authToken) {
+    authStatus.textContent = `Logged in: ${state.authRole} (${state.authEmail})`;
+    authStatus.style.borderColor = "#8f8f8f";
+  } else {
+    authStatus.textContent = "Not logged in";
+    authStatus.style.borderColor = "#5e5e5e";
+  }
+}
+
+async function login() {
+  const email = authEmailInput.value.trim();
+  const password = authPasswordInput.value;
+  if (!email || !password) {
+    alert("Enter email and password.");
+    return;
+  }
+
+  const data = await fetchJson("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  setAuthState({ token: data.token, role: data.role, email: data.email });
+  showToast(`Logged in as ${data.role}`);
+}
+
+async function hydrateSession() {
+  if (!state.authToken) {
+    setAuthState({});
+    return;
+  }
+  try {
+    const me = await fetchJson("/api/auth/me", { auth: true });
+    setAuthState({ token: state.authToken, role: me.role, email: me.email });
+  } catch {
+    setAuthState({});
+  }
 }
 
 async function checkHealth() {
@@ -244,6 +313,10 @@ scanForm.addEventListener("submit", async (event) => {
 });
 
 openReport.addEventListener("click", () => {
+  if (!state.authToken) {
+    alert("Please login first (user/admin).");
+    return;
+  }
   reportUrl.value = state.lastScannedUrl || urlInput.value.trim();
   reportModal.showModal();
 });
@@ -254,6 +327,10 @@ cancelReport.addEventListener("click", () => {
 
 reportForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!state.authToken) {
+    alert("Please login as user/admin before reporting.");
+    return;
+  }
 
   const form = new FormData(reportForm);
   const category = String(form.get("reason") || "phishing_or_scam").trim();
@@ -270,6 +347,7 @@ reportForm.addEventListener("submit", async (event) => {
   try {
     const report = await fetchJson("/api/report", {
       method: "POST",
+      auth: true,
       body: JSON.stringify(payload),
     });
     const normalized = state.lastScannedUrl || payload.url;
@@ -290,6 +368,28 @@ reportForm.addEventListener("submit", async (event) => {
   } catch (error) {
     alert(`Could not submit report: ${error.message}`);
   }
+});
+
+authLoginBtn.addEventListener("click", async () => {
+  try {
+    await login();
+  } catch (error) {
+    alert(`Login failed: ${error.message}`);
+  }
+});
+
+authLogoutBtn.addEventListener("click", async () => {
+  if (!state.authToken) {
+    setAuthState({});
+    return;
+  }
+  try {
+    await fetchJson("/api/auth/logout", { method: "POST", auth: true });
+  } catch {
+    // ignore and clear local session anyway
+  }
+  setAuthState({});
+  showToast("Logged out");
 });
 
 demoButtons.forEach((btn) => {
@@ -313,6 +413,7 @@ demoButtons.forEach((btn) => {
 (async function boot() {
   setGauge(0);
   riskLabel.textContent = "Awaiting Scan";
+  await hydrateSession();
   await refreshReportCount();
   setLegacySectionsState();
   await checkHealth();

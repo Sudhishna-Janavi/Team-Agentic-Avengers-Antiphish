@@ -9,9 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import Settings, from_env
+from .auth import AuthService, SessionUser
 from .models import (
     AnalyzeRequest,
     AnalyzeResponse,
+    DeleteReportResponse,
+    LoginRequest,
+    LoginResponse,
+    LogoutResponse,
+    MeResponse,
     ReportDetailResponse,
     ReportRequest,
     ReportResponse,
@@ -60,6 +66,35 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
         dedupe_seconds=cfg.report_dedupe_seconds,
         now_provider=now_provider,
     )
+    auth = AuthService(
+        user_email=cfg.user_login_email,
+        user_password=cfg.user_login_password,
+        admin_email=cfg.admin_login_email,
+        admin_password=cfg.admin_login_password,
+        token_ttl_minutes=cfg.auth_token_ttl_minutes,
+    )
+
+    def _auth_token(request: Request) -> str:
+        header = request.headers.get("authorization", "").strip()
+        if not header.lower().startswith("bearer "):
+            raise HTTPException(status_code=401, detail="Missing bearer token.")
+        token = header.split(" ", 1)[1].strip()
+        if not token:
+            raise HTTPException(status_code=401, detail="Missing bearer token.")
+        return token
+
+    def _require_user(request: Request) -> SessionUser:
+        token = _auth_token(request)
+        user = auth.get_user(token)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token.")
+        return user
+
+    def _require_admin(request: Request) -> SessionUser:
+        user = _require_user(request)
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Admin role required.")
+        return user
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -86,6 +121,29 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
     def health() -> dict[str, bool]:
         return {"ok": True}
 
+    @app.post("/api/auth/login", response_model=LoginResponse)
+    def login(payload: LoginRequest) -> LoginResponse:
+        session = auth.login(email=payload.email, password=payload.password)
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        return LoginResponse(
+            token=session.token,
+            role=session.user.role,
+            email=session.user.email,
+            expiresAt=session.expires_at,
+        )
+
+    @app.get("/api/auth/me", response_model=MeResponse)
+    def me(request: Request) -> MeResponse:
+        user = _require_user(request)
+        return MeResponse(email=user.email, role=user.role)
+
+    @app.post("/api/auth/logout", response_model=LogoutResponse)
+    def logout(request: Request) -> LogoutResponse:
+        token = _auth_token(request)
+        auth.logout(token)
+        return LogoutResponse(status="ok")
+
     @app.post("/api/analyze", response_model=AnalyzeResponse)
     def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
         try:
@@ -105,6 +163,7 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
 
     @app.post("/api/report", response_model=ReportResponse)
     def report(payload: ReportRequest, request: Request) -> ReportResponse:
+        user = _require_user(request)
         try:
             normalized_url, _ = normalize_url(payload.url)
         except ValueError as err:
@@ -122,6 +181,8 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
             normalized_url=normalized_url,
             client_ip=_client_ip(request),
             suspicious_percent=suspicious_percent,
+            reporter=user.role,
+            user=user.email,
         )
         return ReportResponse(
             status=result.status,
@@ -166,6 +227,14 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
         if item is None:
             raise HTTPException(status_code=404, detail="Report not found.")
         return ReportDetailResponse(**item)
+
+    @app.delete("/api/reports/{report_id}", response_model=DeleteReportResponse)
+    def delete_report(report_id: str, request: Request) -> DeleteReportResponse:
+        _require_admin(request)
+        deleted = report_store.delete_report(report_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Report not found.")
+        return DeleteReportResponse(status="deleted", reportId=report_id)
 
     return app
 

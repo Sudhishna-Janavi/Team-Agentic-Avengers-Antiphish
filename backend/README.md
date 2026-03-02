@@ -28,10 +28,14 @@ Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ## Endpoints
 - `GET /api/health`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 - `POST /api/analyze`
 - `POST /api/report`
 - `GET /api/reports` (filter + pagination)
 - `GET /api/reports/{reportId}`
+- `DELETE /api/reports/{reportId}` (admin only)
 
 ## Community reporting fields
 `POST /api/report` accepts:
@@ -43,6 +47,14 @@ Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 All reports are anonymous (`user: anonymous` in this MVP).
 
 Each report stores `suspiciousPercent` computed from analyzer risk score (`riskScore`).
+
+## Login roles
+- `user`: can add reports
+- `admin`: can add reports and remove reports from feed
+
+Configure credentials in `.env`:
+- `USER_LOGIN_EMAIL`, `USER_LOGIN_PASSWORD`
+- `ADMIN_LOGIN_EMAIL`, `ADMIN_LOGIN_PASSWORD`
 
 ## Feed filtering and pagination
 `GET /api/reports` supports:
