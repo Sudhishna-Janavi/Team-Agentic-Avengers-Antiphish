@@ -234,8 +234,11 @@ scanForm.addEventListener("submit", async (event) => {
       : "No recommendations returned.";
     confidencePill.textContent = `Risk: ${readableRiskLabel(String(data.riskLabel || "low"))}`;
 
-    openReport.disabled = false;
-    openReport.textContent = data.riskLabel === "low" ? "Report Anyway" : "Report This URL";
+    const canReport = String(data.riskLabel || "low") !== "low";
+    openReport.disabled = !canReport;
+    openReport.textContent = canReport
+      ? "Report This URL"
+      : "Reporting disabled for safe links";
   } catch (error) {
     riskLabel.textContent = "Scan failed";
     reasonList.innerHTML = `<li>${escapeHtml(error.message)}</li>`;
