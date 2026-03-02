@@ -50,3 +50,5 @@ class ReportResponse(BaseModel):
     status: str
     reportId: str
     timestamp: datetime
+    deduped: bool
+    message: str | None = None

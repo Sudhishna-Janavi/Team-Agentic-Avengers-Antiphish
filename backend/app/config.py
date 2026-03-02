@@ -12,6 +12,7 @@ class Settings:
     suspicious_tlds: set[str]
     reports_dir: str
     report_ip_hash_salt: str
+    report_dedupe_seconds: int
 
 
 DEFAULT_SUSPICIOUS_TLDS = {
@@ -43,4 +44,5 @@ def from_env() -> Settings:
         suspicious_tlds=_parse_tlds(os.getenv("SUSPICIOUS_TLDS", ",".join(sorted(DEFAULT_SUSPICIOUS_TLDS)))),
         reports_dir=os.getenv("REPORTS_DIR", "./reports"),
         report_ip_hash_salt=os.getenv("REPORT_IP_HASH_SALT", "change-me"),
+        report_dedupe_seconds=int(os.getenv("REPORT_DEDUPE_SECONDS", "86400")),
     )

@@ -12,7 +12,7 @@ from .config import Settings, from_env
 from .models import AnalyzeRequest, AnalyzeResponse, ReportRequest, ReportResponse
 from .rate_limit import InMemoryRateLimiter
 from .reporting import JsonlReportStore
-from .scoring import analyze_url
+from .scoring import analyze_url, normalize_url
 
 load_dotenv()
 
@@ -26,7 +26,7 @@ def _client_ip(request: Request) -> str:
     return "unknown"
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
     cfg = settings or from_env()
 
     app = FastAPI(
@@ -47,7 +47,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         max_requests=cfg.rate_limit_requests,
         window_seconds=cfg.rate_limit_window_seconds,
     )
-    report_store = JsonlReportStore(reports_dir=cfg.reports_dir, salt=cfg.report_ip_hash_salt)
+    report_store = JsonlReportStore(
+        reports_dir=cfg.reports_dir,
+        salt=cfg.report_ip_hash_salt,
+        dedupe_seconds=cfg.report_dedupe_seconds,
+        now_provider=now_provider,
+    )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -94,16 +99,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/report", response_model=ReportResponse)
     def report(payload: ReportRequest, request: Request) -> ReportResponse:
         try:
-            analysis = analyze_url(payload.url, suspicious_tlds=cfg.suspicious_tlds)
+            normalized_url, _ = normalize_url(payload.url)
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
-        report_id, timestamp = report_store.write_report(
+        result = report_store.write_report(
             payload=payload,
-            normalized_url=analysis.normalized_url,
+            normalized_url=normalized_url,
             client_ip=_client_ip(request),
         )
-        return ReportResponse(status="ok", reportId=report_id, timestamp=timestamp)
+        return ReportResponse(
+            status=result.status,
+            reportId=result.report_id,
+            timestamp=result.timestamp,
+            deduped=result.deduped,
+            message=result.message,
+        )
 
     return app
 

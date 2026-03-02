@@ -22,6 +22,7 @@ const tips = [
 const state = {
   lastScannedUrl: "",
   reports: [],
+  reportedUrls: new Set(),
 };
 
 const scanForm = document.getElementById("scan-form");
@@ -54,6 +55,7 @@ const hourlyBars = document.getElementById("hourly-bars");
 const alertsList = document.getElementById("alerts-list");
 const streamStatus = document.getElementById("stream-status");
 const demoButtons = document.querySelectorAll(".demo-btn");
+const reportToast = document.getElementById("report-toast");
 
 function escapeHtml(value) {
   return String(value)
@@ -113,6 +115,15 @@ function renderSignalCards(signals) {
     `;
     contributors.appendChild(card);
   });
+}
+
+function showToast(message) {
+  if (!reportToast) return;
+  reportToast.textContent = message;
+  reportToast.classList.add("show");
+  window.setTimeout(() => {
+    reportToast.classList.remove("show");
+  }, 2200);
 }
 
 function updateLocalReportCount() {
@@ -234,11 +245,17 @@ scanForm.addEventListener("submit", async (event) => {
       : "No recommendations returned.";
     confidencePill.textContent = `Risk: ${readableRiskLabel(String(data.riskLabel || "low"))}`;
 
-    const canReport = String(data.riskLabel || "low") !== "low";
+    const normalized = state.lastScannedUrl;
+    const canReport =
+      String(data.riskLabel || "low") !== "low" && !state.reportedUrls.has(normalized);
     openReport.disabled = !canReport;
-    openReport.textContent = canReport
-      ? "Report This URL"
-      : "Reporting disabled for safe links";
+    if (String(data.riskLabel || "low") === "low") {
+      openReport.textContent = "Reporting disabled for safe links";
+    } else if (state.reportedUrls.has(normalized)) {
+      openReport.textContent = "Already reported";
+    } else {
+      openReport.textContent = "Report This URL";
+    }
   } catch (error) {
     riskLabel.textContent = "Scan failed";
     reasonList.innerHTML = `<li>${escapeHtml(error.message)}</li>`;
@@ -278,18 +295,27 @@ reportForm.addEventListener("submit", async (event) => {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    const normalized = state.lastScannedUrl || payload.url;
+    state.reportedUrls.add(normalized);
 
-    state.reports.push({
-      id: report.reportId,
-      time: new Date(report.timestamp).toISOString().slice(0, 19).replace("T", " "),
-      url: payload.url,
-      reason: payload.reason,
-      reporterType,
-      reporterUser: reporterName,
-    });
+    if (report.status === "exists" || report.deduped) {
+      showToast("Already reported — thanks!");
+    } else if (!state.reports.some((item) => item.id === report.reportId)) {
+      state.reports.push({
+        id: report.reportId,
+        time: new Date(report.timestamp).toISOString().slice(0, 19).replace("T", " "),
+        url: payload.url,
+        reason: payload.reason,
+        reporterType,
+        reporterUser: reporterName,
+      });
+      updateLocalReportCount();
+      renderLocalIntel();
+      showToast("Report submitted. Thank you.");
+    }
 
-    updateLocalReportCount();
-    renderLocalIntel();
+    openReport.disabled = true;
+    openReport.textContent = "Already reported";
 
     reportModal.close();
     reportForm.reset();

@@ -31,6 +31,11 @@ Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - `POST /api/analyze`
 - `POST /api/report`
 
+## Dedupe behavior for reports
+- Reports are idempotent by canonical `normalizedUrl`.
+- Default dedupe window is 24 hours (`REPORT_DEDUPE_SECONDS=86400`).
+- If the same URL is reported again within the window, API returns `status="exists"` and does not create a new row.
+
 ## curl examples
 
 Health:

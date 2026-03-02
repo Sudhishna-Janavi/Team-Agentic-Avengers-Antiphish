@@ -75,7 +75,7 @@ def _registrable_domain(hostname: str) -> str:
     return ".".join(parts[-2:])
 
 
-def _normalize_url(raw_url: str) -> tuple[str, object]:
+def normalize_url(raw_url: str) -> tuple[str, object]:
     parsed = urlsplit(raw_url.strip())
 
     if not parsed.scheme:
@@ -105,7 +105,7 @@ def _normalize_url(raw_url: str) -> tuple[str, object]:
     if include_port:
         netloc = f"{netloc}:{port}"
 
-    encoded_path = quote(unquote(parsed.path or ""), safe="/%:@")
+    encoded_path = quote(unquote(parsed.path or ""), safe="/%:@").rstrip("/")
     normalized = urlunsplit((scheme, netloc, encoded_path, parsed.query, ""))
 
     return normalized, parsed
@@ -149,7 +149,7 @@ def _build_actions(score: int, has_brand_signal: bool) -> list[RecommendedAction
 
 
 def analyze_url(raw_url: str, suspicious_tlds: set[str]) -> AnalysisResult:
-    normalized_url, parsed = _normalize_url(raw_url)
+    normalized_url, parsed = normalize_url(raw_url)
     hostname = (parsed.hostname or "").lower()
 
     score = 10
