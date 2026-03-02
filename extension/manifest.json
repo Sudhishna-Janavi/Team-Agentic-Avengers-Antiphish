@@ -10,7 +10,8 @@
     "storage",
     "notifications",
     "declarativeNetRequest",
-    "scripting"
+    "scripting",
+    "offscreen"
   ],
 
   "host_permissions": [
@@ -25,10 +26,14 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/shield16.png",
-      "48": "icons/shield48.png",
-      "128": "icons/shield128.png"
-    }
+      "16": "icons/shield16.png"
+    } 
+  },
+
+  "icons": {
+    "16": "icons/shield16.png",
+    "48": "icons/shield16.png",
+    "128": "icons/shield16.png"
   },
 
   "content_security_policy": {
@@ -40,7 +45,8 @@
       "resources": [
         "model/*.onnx",
         "lib/*.wasm",
-        "lib/*.mjs"
+        "lib/*.mjs",
+        "icons/phishing.png"
       ],
       "matches": ["<all_urls>"]
     }
