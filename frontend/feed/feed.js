@@ -348,9 +348,9 @@ feedAuthLoginBtn.addEventListener("click", async () => {
     const data = await fetchJson("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username: email, password }),
     });
-    setAuthState({ token: data.token, role: data.role, email: data.email });
+    setAuthState({ token: data.token, role: data.role, email: data.username });
     await loadReports();
   } catch (error) {
     alert(`Login failed: ${error.message}`);

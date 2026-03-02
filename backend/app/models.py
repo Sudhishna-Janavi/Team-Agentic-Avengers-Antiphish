@@ -9,19 +9,24 @@ class AnalyzeRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=200)
+    username: str = Field(min_length=3, max_length=200)
+    password: str = Field(min_length=3, max_length=200)
+
+
+class SignupRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=200)
     password: str = Field(min_length=3, max_length=200)
 
 
 class LoginResponse(BaseModel):
     token: str
     role: str
-    email: str
+    username: str
     expiresAt: datetime
 
 
 class MeResponse(BaseModel):
-    email: str
+    username: str
     role: str
 
 

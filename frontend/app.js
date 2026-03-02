@@ -60,8 +60,11 @@ const streamStatus = document.getElementById("stream-status");
 const demoButtons = document.querySelectorAll(".demo-btn");
 const reportToast = document.getElementById("report-toast");
 const authStatus = document.getElementById("auth-status");
-const authEmailInput = document.getElementById("auth-email");
+const authGate = document.getElementById("auth-gate");
+const appShell = document.getElementById("app-shell");
+const authUsernameInput = document.getElementById("auth-username");
 const authPasswordInput = document.getElementById("auth-password");
+const authSignupBtn = document.getElementById("auth-signup");
 const authLoginBtn = document.getElementById("auth-login");
 const authLogoutBtn = document.getElementById("auth-logout");
 
@@ -216,32 +219,62 @@ function setAuthState({ token = "", role = "", email = "" }) {
   }
 }
 
-async function login() {
-  const email = authEmailInput.value.trim();
+function showApp() {
+  authGate.classList.add("hidden");
+  appShell.classList.remove("hidden");
+}
+
+function showAuthGate() {
+  appShell.classList.add("hidden");
+  authGate.classList.remove("hidden");
+}
+
+async function signup() {
+  const username = authUsernameInput.value.trim();
   const password = authPasswordInput.value;
-  if (!email || !password) {
-    alert("Enter email and password.");
+  if (!username || !password) {
+    alert("Enter username and password.");
+    return;
+  }
+  const data = await fetchJson("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  setAuthState({ token: data.token, role: data.role, email: data.username });
+  showApp();
+  showToast(`Signed up as ${data.role}`);
+}
+
+async function login() {
+  const username = authUsernameInput.value.trim();
+  const password = authPasswordInput.value;
+  if (!username || !password) {
+    alert("Enter username and password.");
     return;
   }
 
   const data = await fetchJson("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   });
-  setAuthState({ token: data.token, role: data.role, email: data.email });
+  setAuthState({ token: data.token, role: data.role, email: data.username });
+  showApp();
   showToast(`Logged in as ${data.role}`);
 }
 
 async function hydrateSession() {
   if (!state.authToken) {
     setAuthState({});
+    showAuthGate();
     return;
   }
   try {
     const me = await fetchJson("/api/auth/me", { auth: true });
-    setAuthState({ token: state.authToken, role: me.role, email: me.email });
+    setAuthState({ token: state.authToken, role: me.role, email: me.username });
+    showApp();
   } catch {
     setAuthState({});
+    showAuthGate();
   }
 }
 
@@ -370,6 +403,14 @@ reportForm.addEventListener("submit", async (event) => {
   }
 });
 
+authSignupBtn.addEventListener("click", async () => {
+  try {
+    await signup();
+  } catch (error) {
+    alert(`Sign up failed: ${error.message}`);
+  }
+});
+
 authLoginBtn.addEventListener("click", async () => {
   try {
     await login();
@@ -389,6 +430,7 @@ authLogoutBtn.addEventListener("click", async () => {
     // ignore and clear local session anyway
   }
   setAuthState({});
+  showAuthGate();
   showToast("Logged out");
 });
 
@@ -414,6 +456,9 @@ demoButtons.forEach((btn) => {
   setGauge(0);
   riskLabel.textContent = "Awaiting Scan";
   await hydrateSession();
+  if (!state.authToken) {
+    return;
+  }
   await refreshReportCount();
   setLegacySectionsState();
   await checkHealth();

@@ -18,6 +18,7 @@ from .models import (
     LoginResponse,
     LogoutResponse,
     MeResponse,
+    SignupRequest,
     ReportDetailResponse,
     ReportRequest,
     ReportResponse,
@@ -121,22 +122,34 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
     def health() -> dict[str, bool]:
         return {"ok": True}
 
-    @app.post("/api/auth/login", response_model=LoginResponse)
-    def login(payload: LoginRequest) -> LoginResponse:
-        session = auth.login(email=payload.email, password=payload.password)
+    @app.post("/api/auth/signup", response_model=LoginResponse)
+    def signup(payload: SignupRequest) -> LoginResponse:
+        session = auth.signup(username=payload.username, password=payload.password)
         if not session:
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
+            raise HTTPException(status_code=409, detail="Username already exists.")
         return LoginResponse(
             token=session.token,
             role=session.user.role,
-            email=session.user.email,
+            username=session.user.username,
+            expiresAt=session.expires_at,
+        )
+
+    @app.post("/api/auth/login", response_model=LoginResponse)
+    def login(payload: LoginRequest) -> LoginResponse:
+        session = auth.login(username=payload.username, password=payload.password)
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid username or password.")
+        return LoginResponse(
+            token=session.token,
+            role=session.user.role,
+            username=session.user.username,
             expiresAt=session.expires_at,
         )
 
     @app.get("/api/auth/me", response_model=MeResponse)
     def me(request: Request) -> MeResponse:
         user = _require_user(request)
-        return MeResponse(email=user.email, role=user.role)
+        return MeResponse(username=user.username, role=user.role)
 
     @app.post("/api/auth/logout", response_model=LogoutResponse)
     def logout(request: Request) -> LogoutResponse:
@@ -182,7 +195,7 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
             client_ip=_client_ip(request),
             suspicious_percent=suspicious_percent,
             reporter=user.role,
-            user=user.email,
+            user=user.username,
         )
         return ReportResponse(
             status=result.status,

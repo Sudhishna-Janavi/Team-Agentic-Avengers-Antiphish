@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 @dataclass(frozen=True)
 class SessionUser:
-    email: str
+    username: str
     role: str
 
 
@@ -36,8 +36,15 @@ class AuthService:
             admin_email.strip().lower(): {"password": admin_password, "role": "admin"},
         }
 
-    def login(self, email: str, password: str) -> SessionRecord | None:
-        normalized = email.strip().lower()
+    def signup(self, username: str, password: str) -> SessionRecord | None:
+        normalized = username.strip().lower()
+        if not normalized or normalized in self._accounts:
+            return None
+        self._accounts[normalized] = {"password": password, "role": "user"}
+        return self.login(username=normalized, password=password)
+
+    def login(self, username: str, password: str) -> SessionRecord | None:
+        normalized = username.strip().lower()
         account = self._accounts.get(normalized)
         if not account or account["password"] != password:
             return None
@@ -46,7 +53,7 @@ class AuthService:
         token = secrets.token_urlsafe(32)
         record = SessionRecord(
             token=token,
-            user=SessionUser(email=normalized, role=account["role"]),
+            user=SessionUser(username=normalized, role=account["role"]),
             expires_at=now + timedelta(minutes=self._token_ttl_minutes),
         )
         with self._lock:

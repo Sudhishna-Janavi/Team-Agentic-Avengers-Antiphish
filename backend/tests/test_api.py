@@ -29,8 +29,8 @@ def make_client(tmp_path: Path, dedupe_seconds: int = 86400, now_provider=None) 
     return TestClient(app)
 
 
-def login_headers(client: TestClient, email: str, password: str) -> dict[str, str]:
-    response = client.post("/api/auth/login", json={"email": email, "password": password})
+def login_headers(client: TestClient, username: str, password: str) -> dict[str, str]:
+    response = client.post("/api/auth/login", json={"username": username, "password": password})
     assert response.status_code == 200
     token = response.json()["token"]
     return {"Authorization": f"Bearer {token}"}
@@ -39,7 +39,9 @@ def login_headers(client: TestClient, email: str, password: str) -> dict[str, st
 def test_auth_login_and_me(tmp_path: Path) -> None:
     client = make_client(tmp_path)
 
-    bad = client.post("/api/auth/login", json={"email": "user@test.local", "password": "wrong"})
+    bad = client.post(
+        "/api/auth/login", json={"username": "user@test.local", "password": "wrong"}
+    )
     assert bad.status_code == 401
 
     headers = login_headers(client, "user@test.local", "user12345")
