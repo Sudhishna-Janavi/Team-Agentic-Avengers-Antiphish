@@ -1,4 +1,4 @@
-# PhishGuard
+# Antiphish
 
 Minimal anti-phishing checker for hackathon demos.
 
