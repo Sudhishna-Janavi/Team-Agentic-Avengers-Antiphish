@@ -81,6 +81,18 @@ footer {
   gap: 1rem;
 }
 
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.user-greeting {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 .nav-links a {
   color: var(--muted);
   text-decoration: none;
@@ -318,11 +330,65 @@ h3 {
   color: #fff8f8;
 }
 
+.btn-small {
+  height: 2.4rem;
+  padding: 0 0.8rem;
+  font-size: 0.84rem;
+}
+
 .feedback {
   margin: 0.65rem 0 0;
   color: #2d4934;
   font-weight: 600;
   font-size: 0.88rem;
+}
+
+.login-body {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.login-main {
+  width: min(460px, calc(100vw - 2rem));
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+  padding: 1.2rem;
+  animation: rise 600ms ease-out both;
+}
+
+.login-card h1 {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+}
+
+.login-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.login-form label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.login-form input {
+  height: 2.8rem;
+  border-radius: 0.7rem;
+  border: 1px solid #b8cec4;
+  padding: 0 0.8rem;
+  font-size: 0.98rem;
+}
+
+.login-form button {
+  margin-top: 0.5rem;
+  background: linear-gradient(180deg, #1d6e58, var(--brand-strong));
+  color: #f5fbf8;
 }
 
 .info-grid {
@@ -420,6 +486,11 @@ footer p {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.6rem;
+  }
+
+  .nav-user {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 

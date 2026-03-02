@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PhishGuard Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="login-body">
+    <div class="bg-orb bg-orb-left" aria-hidden="true"></div>
+    <div class="bg-orb bg-orb-right" aria-hidden="true"></div>
+
+    <main class="login-main">
+      <section class="login-card" aria-labelledby="login-title">
+        <p class="eyebrow">PhishGuard</p>
+        <h1 id="login-title">Log in to continue</h1>
+        <p class="subtitle">Sign in to access link analysis and reporting tools.</p>
+
+        <form id="login-form" class="login-form" novalidate>
+          <label for="email-input">Email</label>
+          <input
+            id="email-input"
+            type="email"
+            autocomplete="email"
+            placeholder="you@company.com"
+            required
+          />
+
+          <label for="password-input">Password</label>
+          <input
+            id="password-input"
+            type="password"
+            autocomplete="current-password"
+            placeholder="At least 8 characters"
+            required
+          />
+
+          <button type="submit">Log In</button>
+          <p id="login-feedback" class="feedback" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="./auth.js"></script>
+    <script src="./login.js"></script>
+  </body>
+</html>

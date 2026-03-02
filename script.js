@@ -1,3 +1,6 @@
+const auth = window.PhishGuardAuth;
+auth?.requireAuth();
+
 const form = document.getElementById("scan-form");
 const urlInput = document.getElementById("url-input");
 const resultPanel = document.getElementById("result");
@@ -10,6 +13,12 @@ const reasonList = document.getElementById("reason-list");
 const reportBtn = document.getElementById("report-btn");
 const reportFeedback = document.getElementById("report-feedback");
 const scanDate = document.getElementById("scan-date");
+const logoutBtn = document.getElementById("logout-btn");
+const userGreeting = document.getElementById("user-greeting");
+
+if (userGreeting && auth) {
+  userGreeting.textContent = `Signed in as ${auth.getUsername()}`;
+}
 
 const resultPresets = {
   high: {
@@ -143,4 +152,8 @@ form.addEventListener("submit", (event) => {
 
 reportBtn.addEventListener("click", () => {
   reportFeedback.textContent = "Thanks. Your report was submitted.";
+});
+
+logoutBtn?.addEventListener("click", () => {
+  auth?.signOut();
 });

@@ -21,11 +21,15 @@ Lightweight phishing-detection web UI prototype.
 
 ## Run locally
 
-1. Open `/Users/jamie/Documents/Hackaton/DLW/index.html` in a browser.
-2. Paste a URL and click **Check Link Safety**.
+1. Open `/Users/jamie/Documents/Hackaton/DLW/login.html` in a browser.
+2. Log in with any email and a password that is at least 8 characters.
+3. Paste a URL and click **Check Link Safety**.
 
 ## Files
 
+- `login.html` - login page UI
+- `login.js` - login validation and sign-in flow
+- `auth.js` - shared client-side auth helpers and route guard
 - `index.html` - app structure and content
 - `styles.css` - visual design, layout, responsiveness, accessibility styles
 - `script.js` - demo analysis flow, risk scoring presets, explainable reasons, report feedback
