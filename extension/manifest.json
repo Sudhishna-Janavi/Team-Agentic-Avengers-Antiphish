@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Antiphish",
+  "version": "1.0",
+  "description": "AI-powered digital safety sentry for real-time phishing detection.",
+  "author": "agentic avengers",
+  
+  "permissions": [
+    "tabs",
+    "storage",
+    "notifications",
+    "declarativeNetRequest",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/shield16.png",
+      "48": "icons/shield48.png",
+      "128": "icons/shield128.png"
+    }
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "model/*.onnx",
+        "lib/*.wasm",
+        "lib/*.mjs"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
