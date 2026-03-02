@@ -13,4 +13,4 @@
   - Add helper copy: "Automated checks can be wrong. If unsure, verify using official channels."
 
 - Privacy note:
-  - Add visible line: "We do not fetch or open the submitted link content. We analyze the URL text only."
+  - Add visible line: "We do not fetch or open the submitted link content. We analyze the URL text only." d
