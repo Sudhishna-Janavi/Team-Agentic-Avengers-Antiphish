@@ -265,6 +265,9 @@ button:disabled {
   background: var(--ghost-bg);
   color: var(--ink);
   border: 1px solid var(--ghost-border);
+  border-radius: 12px;
+  padding: 0.72rem 1rem;
+  font-weight: 700;
 }
 
 .danger-btn {
@@ -277,6 +280,7 @@ button:disabled {
 a.ghost-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   text-decoration: none;
 }
 

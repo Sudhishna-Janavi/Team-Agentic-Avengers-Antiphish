@@ -19,7 +19,6 @@ const feedTotal = document.getElementById("feed-total");
 const queryInput = document.getElementById("filter-query");
 const reasonSelect = document.getElementById("filter-reason");
 const sinceSelect = document.getElementById("filter-since");
-const userSelect = document.getElementById("filter-user");
 const clearFiltersBtn = document.getElementById("clear-filters");
 const prevPageBtn = document.getElementById("prev-page");
 const nextPageBtn = document.getElementById("next-page");
@@ -29,9 +28,6 @@ const detailModal = document.getElementById("report-detail-modal");
 const closeDetailBtn = document.getElementById("close-detail");
 const copyUrlBtn = document.getElementById("copy-url");
 const feedAuthStatus = document.getElementById("feed-auth-status");
-const feedAuthEmail = document.getElementById("feed-auth-email");
-const feedAuthPassword = document.getElementById("feed-auth-password");
-const feedAuthLoginBtn = document.getElementById("feed-auth-login");
 const feedAuthLogoutBtn = document.getElementById("feed-auth-logout");
 
 function q(id) {
@@ -102,7 +98,7 @@ async function hydrateSession() {
   }
   try {
     const me = await fetchJson("/api/auth/me", { auth: true });
-    setAuthState({ token: state.authToken, role: me.role, email: me.email });
+    setAuthState({ token: state.authToken, role: me.role, email: me.username });
   } catch {
     setAuthState({});
   }
@@ -116,12 +112,10 @@ function buildListQuery() {
   const query = queryInput.value.trim();
   const reason = reasonSelect.value;
   const since = sinceSelect.value;
-  const user = userSelect.value;
 
   if (query) params.set("query", query);
   if (reason) params.set("reason", reason);
   if (since) params.set("since", since);
-  if (user) params.set("user", user);
 
   return params.toString();
 }
@@ -135,7 +129,7 @@ function updatePagination() {
 
 function renderRows(items) {
   if (!items.length) {
-    feedBody.innerHTML = '<tr><td colspan="8">No reports match your filters.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="7">No reports match your filters.</td></tr>';
     return;
   }
 
@@ -148,7 +142,6 @@ function renderRows(items) {
         <td>${escapeHtml(item.reason)}</td>
         <td>${escapeHtml(String(item.suspiciousPercent ?? "-"))}%</td>
         <td>${escapeHtml(item.reporter || "user")}</td>
-        <td>${escapeHtml(item.user || "anonymous")}</td>
         <td title="${escapeHtml(item.whySuspicious || "-")}">${escapeHtml(
           truncate(item.whySuspicious || "-", 96)
         )}</td>
@@ -165,31 +158,16 @@ function renderRows(items) {
     .join("");
 }
 
-function renderUserFilterOptions(values) {
-  const current = userSelect.value;
-  userSelect.innerHTML = '<option value="">All users</option>';
-  values.forEach((value) => {
-    const opt = document.createElement("option");
-    opt.value = value;
-    opt.textContent = value;
-    userSelect.appendChild(opt);
-  });
-  if (current && values.includes(current)) {
-    userSelect.value = current;
-  }
-}
-
 async function loadReports() {
   try {
     const data = await fetchJson(`/api/reports?${buildListQuery()}`);
     state.total = Number(data.total || 0);
     state.lastItems = Array.isArray(data.items) ? data.items : [];
     feedTotal.textContent = `Total: ${state.total}`;
-    renderUserFilterOptions(Array.isArray(data.availableUsers) ? data.availableUsers : []);
     renderRows(state.lastItems);
     updatePagination();
   } catch {
-    feedBody.innerHTML = '<tr><td colspan="8">Could not load reports.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="7">Could not load reports.</td></tr>';
   }
 }
 
@@ -233,7 +211,6 @@ async function openDetail(reportId) {
     setText("detail-reason", detail.reason);
     setText("detail-suspicious", `${detail.suspiciousPercent ?? "-"}%`);
     setText("detail-reporter", detail.reporter || "user");
-    setText("detail-user", detail.user || "anonymous");
     setText("detail-why", detail.whySuspicious || "-");
     setText("detail-evidence", detail.evidence || "-");
 
@@ -292,16 +269,10 @@ sinceSelect.addEventListener("change", () => {
   loadReports();
 });
 
-userSelect.addEventListener("change", () => {
-  state.page = 1;
-  loadReports();
-});
-
 clearFiltersBtn.addEventListener("click", () => {
   queryInput.value = "";
   reasonSelect.value = "";
   sinceSelect.value = "24h";
-  userSelect.value = "";
   state.page = 1;
   loadReports();
 });
@@ -335,26 +306,6 @@ copyUrlBtn.addEventListener("click", async () => {
 
 closeDetailBtn.addEventListener("click", () => {
   detailModal.close();
-});
-
-feedAuthLoginBtn.addEventListener("click", async () => {
-  const email = feedAuthEmail.value.trim();
-  const password = feedAuthPassword.value;
-  if (!email || !password) {
-    alert("Enter email and password.");
-    return;
-  }
-  try {
-    const data = await fetchJson("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: email, password }),
-    });
-    setAuthState({ token: data.token, role: data.role, email: data.username });
-    await loadReports();
-  } catch (error) {
-    alert(`Login failed: ${error.message}`);
-  }
 });
 
 feedAuthLogoutBtn.addEventListener("click", async () => {

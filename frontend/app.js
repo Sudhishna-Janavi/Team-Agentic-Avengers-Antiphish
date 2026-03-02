@@ -27,7 +27,7 @@ const state = {
   reportedUrls: new Set(),
   authToken: localStorage.getItem(AUTH_TOKEN_KEY) || "",
   authRole: localStorage.getItem(AUTH_ROLE_KEY) || "",
-  authEmail: localStorage.getItem(AUTH_EMAIL_KEY) || "",
+  authUsername: localStorage.getItem(AUTH_EMAIL_KEY) || "",
 };
 
 const scanForm = document.getElementById("scan-form");
@@ -195,15 +195,15 @@ async function fetchJson(path, options = {}) {
   return res.json();
 }
 
-function setAuthState({ token = "", role = "", email = "" }) {
+function setAuthState({ token = "", role = "", username = "" }) {
   state.authToken = token;
   state.authRole = role;
-  state.authEmail = email;
+  state.authUsername = username;
 
   if (token) {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     localStorage.setItem(AUTH_ROLE_KEY, role);
-    localStorage.setItem(AUTH_EMAIL_KEY, email);
+    localStorage.setItem(AUTH_EMAIL_KEY, username);
   } else {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_ROLE_KEY);
@@ -211,7 +211,7 @@ function setAuthState({ token = "", role = "", email = "" }) {
   }
 
   if (state.authToken) {
-    authStatus.textContent = `Logged in: ${state.authRole} (${state.authEmail})`;
+    authStatus.textContent = `Logged in: ${state.authRole} (${state.authUsername})`;
     authStatus.style.borderColor = "#8f8f8f";
   } else {
     authStatus.textContent = "Not logged in";
@@ -240,7 +240,7 @@ async function signup() {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
-  setAuthState({ token: data.token, role: data.role, email: data.username });
+  setAuthState({ token: data.token, role: data.role, username: data.username });
   showApp();
   showToast(`Signed up as ${data.role}`);
 }
@@ -257,7 +257,7 @@ async function login() {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
-  setAuthState({ token: data.token, role: data.role, email: data.username });
+  setAuthState({ token: data.token, role: data.role, username: data.username });
   showApp();
   showToast(`Logged in as ${data.role}`);
 }
@@ -270,7 +270,7 @@ async function hydrateSession() {
   }
   try {
     const me = await fetchJson("/api/auth/me", { auth: true });
-    setAuthState({ token: state.authToken, role: me.role, email: me.username });
+    setAuthState({ token: state.authToken, role: me.role, username: me.username });
     showApp();
   } catch {
     setAuthState({});
@@ -455,6 +455,9 @@ demoButtons.forEach((btn) => {
 (async function boot() {
   setGauge(0);
   riskLabel.textContent = "Awaiting Scan";
+  if (state.authToken) {
+    showApp();
+  }
   await hydrateSession();
   if (!state.authToken) {
     return;

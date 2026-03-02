@@ -48,7 +48,7 @@ class StoredReport:
             "normalizedUrl": self.normalized_url,
             "reason": self.reason,
             "reporter": self.reporter,
-            "user": self.user,
+            "user": "private",
             "whySuspicious": self.why_suspicious,
             "suspiciousPercent": self.suspicious_percent,
         }
@@ -275,10 +275,7 @@ class JsonlReportStore:
         reason_filter = (reason or "").strip().lower()
         user_filter = (user or "").strip().lower()
         cutoff = self._resolve_since_cutoff(since)
-        available_users = sorted(
-            {report.user for report in reports if report.user},
-            key=lambda item: item.lower(),
-        )
+        available_users: list[str] = []
 
         filtered: list[StoredReport] = []
         for report in reports:

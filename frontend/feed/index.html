@@ -28,11 +28,6 @@
           <a class="ghost-btn" href="/">Back to Scanner</a>
           <span id="feed-total" class="status-pill">Total: 0</span>
           <span id="feed-auth-status" class="status-pill">Not logged in</span>
-        </div>
-        <div class="auth-row">
-          <input id="feed-auth-email" type="text" placeholder="Username" />
-          <input id="feed-auth-password" type="password" placeholder="Password" />
-          <button id="feed-auth-login" type="button">Login</button>
           <button id="feed-auth-logout" class="ghost-btn" type="button">Logout</button>
         </div>
       </header>
@@ -61,13 +56,6 @@
               <option value="all">All time</option>
             </select>
           </div>
-          <div>
-            <label for="filter-user">User</label>
-            <select id="filter-user">
-              <option value="">All users</option>
-              <option value="anonymous">anonymous</option>
-            </select>
-          </div>
           <div class="feed-actions">
             <button id="clear-filters" class="ghost-btn" type="button">Clear filters</button>
           </div>
@@ -84,14 +72,13 @@
                 <th>Reason</th>
                 <th>Suspicious %</th>
                 <th>Reporter</th>
-                <th>User</th>
                 <th>Why suspicious</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="feed-body">
               <tr>
-                <td colspan="8">Loading...</td>
+                <td colspan="7">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -123,7 +110,6 @@
         <p><strong>Reason:</strong> <span id="detail-reason">-</span></p>
         <p><strong>Suspicious %:</strong> <span id="detail-suspicious">-</span></p>
         <p><strong>Reporter:</strong> <span id="detail-reporter">-</span></p>
-        <p><strong>User:</strong> <span id="detail-user">-</span></p>
         <p><strong>Why suspicious:</strong> <span id="detail-why">-</span></p>
         <p><strong>Evidence:</strong> <span id="detail-evidence">-</span></p>
         <div>
