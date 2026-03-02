@@ -110,10 +110,18 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
+        suspicious_percent = 50
+        try:
+            analysis = analyze_url(payload.url, suspicious_tlds=cfg.suspicious_tlds)
+            suspicious_percent = int(analysis.risk_score)
+        except Exception:
+            suspicious_percent = 50
+
         result = report_store.write_report(
             payload=payload,
             normalized_url=normalized_url,
             client_ip=_client_ip(request),
+            suspicious_percent=suspicious_percent,
         )
         return ReportResponse(
             status=result.status,
@@ -127,14 +135,16 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
     def list_reports(
         query: str | None = Query(default=None),
         reason: str | None = Query(default=None),
+        user: str | None = Query(default=None),
         since: str | None = Query(default="all"),
         page: int = Query(default=1, ge=1),
         pageSize: int = Query(default=25, ge=1, le=100),
     ) -> ReportsListResponse:
         try:
-            items, total = report_store.list_reports(
+            items, total, available_users = report_store.list_reports(
                 query=query,
                 reason=reason,
+                user=user,
                 since=since,
                 page=page,
                 page_size=pageSize,
@@ -142,7 +152,13 @@ def create_app(settings: Settings | None = None, now_provider=None) -> FastAPI:
         except ValueError as err:
             raise HTTPException(status_code=400, detail=str(err)) from err
 
-        return ReportsListResponse(items=items, page=page, pageSize=pageSize, total=total)
+        return ReportsListResponse(
+            items=items,
+            page=page,
+            pageSize=pageSize,
+            total=total,
+            availableUsers=available_users,
+        )
 
     @app.get("/api/reports/{report_id}", response_model=ReportDetailResponse)
     def get_report_detail(report_id: str) -> ReportDetailResponse:

@@ -33,15 +33,22 @@ Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - `GET /api/reports` (filter + pagination)
 - `GET /api/reports/{reportId}`
 
-## Dedupe behavior for reports
-- Reports are idempotent by canonical `normalizedUrl`.
-- Default dedupe window is 24 hours (`REPORT_DEDUPE_SECONDS=86400`).
-- If the same URL is reported again within the window, API returns `status="exists"` and does not create a new row.
+## Community reporting fields
+`POST /api/report` accepts:
+- `url`
+- `reason` (`phishing_or_scam | malware | impersonation | other`)
+- `whySuspicious` (required, min length 5)
+- `evidence` (optional)
+
+All reports are anonymous (`user: anonymous` in this MVP).
+
+Each report stores `suspiciousPercent` computed from analyzer risk score (`riskScore`).
 
 ## Feed filtering and pagination
 `GET /api/reports` supports:
 - `query`: URL/domain substring search
 - `reason`: exact reason filter
+- `user`: exact user filter
 - `since`: `24h`, `7d`, `all`, or ISO timestamp
 - `page` / `pageSize`
 

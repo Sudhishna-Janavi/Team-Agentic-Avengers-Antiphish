@@ -256,14 +256,15 @@ reportForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const form = new FormData(reportForm);
-  const userReason = String(form.get("reason") || "").trim();
+  const category = String(form.get("reason") || "phishing_or_scam").trim();
+  const whySuspicious = String(form.get("whySuspicious") || "").trim();
   const evidence = String(form.get("evidence") || "").trim();
 
-  const notesParts = [userReason, evidence].filter(Boolean);
   const payload = {
     url: String(form.get("url") || "").trim(),
-    reason: "phishing_or_scam",
-    notes: notesParts.join(" | ") || null,
+    reason: category || "phishing_or_scam",
+    whySuspicious,
+    evidence: evidence || null,
   };
 
   try {

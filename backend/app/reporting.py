@@ -35,7 +35,9 @@ class StoredReport:
     reason: str
     reporter: str
     user: str
-    notes: str | None
+    why_suspicious: str
+    evidence: str | None
+    suspicious_percent: int
     client_ip_hash: str
 
     def to_list_item(self) -> dict:
@@ -47,11 +49,13 @@ class StoredReport:
             "reason": self.reason,
             "reporter": self.reporter,
             "user": self.user,
+            "whySuspicious": self.why_suspicious,
+            "suspiciousPercent": self.suspicious_percent,
         }
 
     def to_detail(self) -> dict:
         data = self.to_list_item()
-        data["notes"] = self.notes
+        data["evidence"] = self.evidence
         return data
 
 
@@ -113,7 +117,12 @@ class JsonlReportStore:
             reason=reason,
             reporter=str(row.get("reporter") or "user").strip() or "user",
             user=str(row.get("user") or "anonymous").strip() or "anonymous",
-            notes=row.get("notes"),
+            why_suspicious=(
+                str(row.get("whySuspicious") or row.get("notes") or "").strip()
+                or "No explanation provided."
+            ),
+            evidence=row.get("evidence"),
+            suspicious_percent=max(0, min(100, int(row.get("suspiciousPercent") or 50))),
             client_ip_hash=str(row.get("clientIpHash") or "").strip(),
         )
 
@@ -154,6 +163,7 @@ class JsonlReportStore:
         payload: ReportRequest,
         normalized_url: str,
         client_ip: str,
+        suspicious_percent: int,
     ) -> ReportResult:
         now = self._now()
 
@@ -177,7 +187,9 @@ class JsonlReportStore:
                 "url": payload.url,
                 "normalizedUrl": normalized_url,
                 "reason": payload.reason,
-                "notes": payload.notes,
+                "whySuspicious": payload.whySuspicious,
+                "evidence": payload.evidence,
+                "suspiciousPercent": max(0, min(100, int(suspicious_percent))),
                 "reporter": "user",
                 "user": "anonymous",
                 "clientIpHash": self._hash_ip(client_ip),
@@ -217,20 +229,28 @@ class JsonlReportStore:
         self,
         query: str | None,
         reason: str | None,
+        user: str | None,
         since: str | None,
         page: int,
         page_size: int,
-    ) -> tuple[list[dict], int]:
+    ) -> tuple[list[dict], int, list[str]]:
         with self._lock:
             reports = list(reversed(self._reports))
 
         query_lower = (query or "").strip().lower()
         reason_filter = (reason or "").strip().lower()
+        user_filter = (user or "").strip().lower()
         cutoff = self._resolve_since_cutoff(since)
+        available_users = sorted(
+            {report.user for report in reports if report.user},
+            key=lambda item: item.lower(),
+        )
 
         filtered: list[StoredReport] = []
         for report in reports:
             if reason_filter and report.reason.lower() != reason_filter:
+                continue
+            if user_filter and report.user.lower() != user_filter:
                 continue
             if cutoff and report.timestamp < cutoff:
                 continue
@@ -254,7 +274,7 @@ class JsonlReportStore:
         start = (page - 1) * page_size
         end = start + page_size
         page_items = [report.to_list_item() for report in deduped_items[start:end]]
-        return page_items, total
+        return page_items, total, available_users
 
     def get_report(self, report_id: str) -> dict | None:
         with self._lock:

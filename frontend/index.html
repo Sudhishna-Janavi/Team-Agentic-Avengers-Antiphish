@@ -166,38 +166,29 @@
       <form method="dialog" id="report-form">
         <h3>Submit Community Report</h3>
         <p class="modal-help">
-          Help strengthen shared phishing intelligence for responders.
+          Reports are anonymous. Do not include personal information.
         </p>
         <label for="report-url">URL</label>
         <input id="report-url" name="url" type="url" required />
 
-        <label for="report-reason">Why is this suspicious?</label>
+        <label for="report-category">Reason / Category</label>
+        <select id="report-category" name="reason" required>
+          <option value="phishing_or_scam" selected>phishing_or_scam</option>
+          <option value="malware">malware</option>
+          <option value="impersonation">impersonation</option>
+          <option value="other">other</option>
+        </select>
+
+        <label for="report-why">Why is this suspicious?</label>
         <textarea
-          id="report-reason"
-          name="reason"
+          id="report-why"
+          name="whySuspicious"
           rows="4"
           minlength="5"
-          maxlength="300"
+          maxlength="1000"
           placeholder="Looks like fake DBS login page with urgent wording"
           required
         ></textarea>
-
-        <label for="reporter-type">Reporter Type</label>
-        <select id="reporter-type" name="reporter_type">
-          <option value="user">User</option>
-          <option value="bank">Bank</option>
-          <option value="gov">Government</option>
-          <option value="partner">Partner</option>
-        </select>
-
-        <label for="reporter-name">Reporter Name (optional)</label>
-        <input
-          id="reporter-name"
-          name="reporter_name"
-          type="text"
-          maxlength="80"
-          placeholder="e.g. Sudhishna"
-        />
 
         <label for="report-evidence">Evidence (optional)</label>
         <input

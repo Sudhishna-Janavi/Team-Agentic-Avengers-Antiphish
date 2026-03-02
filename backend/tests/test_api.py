@@ -66,7 +66,8 @@ def test_report_writes_jsonl(tmp_path: Path) -> None:
     payload = {
         "url": "https://example.com/login",
         "reason": "phishing_or_scam",
-        "notes": "Suspicious login form",
+        "whySuspicious": "Suspicious login form",
+        "evidence": "Received from SMS",
     }
     response = client.post("/api/report", json=payload)
 
@@ -84,6 +85,8 @@ def test_report_writes_jsonl(tmp_path: Path) -> None:
     row = json.loads(lines[0])
     assert row["url"] == payload["url"]
     assert row["reason"] == payload["reason"]
+    assert row["whySuspicious"] == payload["whySuspicious"]
+    assert isinstance(row["suspiciousPercent"], int)
     assert row["clientIpHash"]
 
 
@@ -92,7 +95,7 @@ def test_duplicate_report_returns_exists(tmp_path: Path) -> None:
     payload = {
         "url": "https://EXAMPLE.com/a/",
         "reason": "phishing_or_scam",
-        "notes": "first",
+        "whySuspicious": "Looks like fake login page",
     }
 
     first = client.post("/api/report", json=payload)
@@ -123,11 +126,19 @@ def test_different_urls_create_separate_reports(tmp_path: Path) -> None:
 
     first = client.post(
         "/api/report",
-        json={"url": "https://example.com/a", "reason": "phishing_or_scam"},
+        json={
+            "url": "https://example.com/a",
+            "reason": "phishing_or_scam",
+            "whySuspicious": "Potential fake sign-in form",
+        },
     )
     second = client.post(
         "/api/report",
-        json={"url": "https://example.com/b", "reason": "phishing_or_scam"},
+        json={
+            "url": "https://example.com/b",
+            "reason": "phishing_or_scam",
+            "whySuspicious": "Requests credentials urgently",
+        },
     )
 
     assert first.status_code == 200
@@ -153,6 +164,7 @@ def test_same_url_after_dedupe_window_creates_new_report(tmp_path: Path) -> None
     payload = {
         "url": "https://example.com/a",
         "reason": "phishing_or_scam",
+        "whySuspicious": "Looks suspicious and urgent",
     }
 
     first = client.post("/api/report", json=payload)
@@ -170,9 +182,21 @@ def test_same_url_after_dedupe_window_creates_new_report(tmp_path: Path) -> None
 def test_reports_endpoint_filters_and_paginates(tmp_path: Path) -> None:
     client = make_client(tmp_path)
     rows = [
-        {"url": "https://news.example.com/update", "reason": "other"},
-        {"url": "https://secure-bank-login.ru/verify/account", "reason": "phishing_or_scam"},
-        {"url": "https://malware.bad.site/download", "reason": "malware"},
+        {
+            "url": "https://news.example.com/update",
+            "reason": "other",
+            "whySuspicious": "Unexpected update request",
+        },
+        {
+            "url": "https://secure-bank-login.ru/verify/account",
+            "reason": "phishing_or_scam",
+            "whySuspicious": "Looks like fake bank portal",
+        },
+        {
+            "url": "https://malware.bad.site/download",
+            "reason": "malware",
+            "whySuspicious": "Pushes unknown executable",
+        },
     ]
     for row in rows:
         response = client.post("/api/report", json=row)
@@ -183,6 +207,12 @@ def test_reports_endpoint_filters_and_paginates(tmp_path: Path) -> None:
     body = by_reason.json()
     assert body["total"] == 1
     assert body["items"][0]["reason"] == "malware"
+    assert "suspiciousPercent" in body["items"][0]
+    assert "whySuspicious" in body["items"][0]
+
+    by_user = client.get("/api/reports?user=anonymous&page=1&pageSize=25")
+    assert by_user.status_code == 200
+    assert by_user.json()["total"] == 3
 
     by_query = client.get("/api/reports?query=secure-bank-login&page=1&pageSize=25")
     assert by_query.status_code == 200
@@ -210,7 +240,8 @@ def test_report_detail_endpoint_returns_full_report(tmp_path: Path) -> None:
         json={
             "url": "https://example.com/abc",
             "reason": "phishing_or_scam",
-            "notes": "full detail check",
+            "whySuspicious": "full detail check",
+            "evidence": "sms from unknown sender",
         },
     )
     report_id = created.json()["reportId"]
@@ -219,5 +250,7 @@ def test_report_detail_endpoint_returns_full_report(tmp_path: Path) -> None:
     assert detail.status_code == 200
     body = detail.json()
     assert body["reportId"] == report_id
-    assert body["notes"] == "full detail check"
+    assert body["whySuspicious"] == "full detail check"
+    assert body["evidence"] == "sms from unknown sender"
+    assert isinstance(body["suspiciousPercent"], int)
     assert body["normalizedUrl"] == "https://example.com/abc"

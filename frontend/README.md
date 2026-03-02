@@ -1,8 +1,21 @@
 # Antiphish+ Frontend
 
 ## Pages
-- `/` scanner page
-- `/feed/` community feed with search/filter/pagination and row detail modal
+- `/` scanner page + anonymous community report modal
+- `/feed/` community feed with:
+  - URL/domain search
+  - reason filter
+  - time filter
+  - user filter
+  - pagination
+  - row detail modal
+
+## Reporting UX
+- Reports are anonymous.
+- Report modal fields:
+  - Reason/category (`phishing_or_scam`, `malware`, `impersonation`, `other`)
+  - Why is this suspicious? (required)
+  - Evidence (optional)
 
 ## Run
 

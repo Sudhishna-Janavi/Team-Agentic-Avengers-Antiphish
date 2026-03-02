@@ -32,7 +32,8 @@ class AnalyzeResponse(BaseModel):
 class ReportRequest(BaseModel):
     url: str = Field(min_length=3, max_length=2048)
     reason: str = Field(min_length=3, max_length=100)
-    notes: str | None = Field(default=None, max_length=1000)
+    whySuspicious: str = Field(min_length=5, max_length=1000)
+    evidence: str | None = Field(default=None, max_length=1000)
 
     @field_validator("reason")
     @classmethod
@@ -44,6 +45,22 @@ class ReportRequest(BaseModel):
                 "reason must be one of: phishing_or_scam, malware, impersonation, other"
             )
         return normalized
+
+    @field_validator("whySuspicious")
+    @classmethod
+    def validate_why_suspicious(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 5:
+            raise ValueError("whySuspicious must be at least 5 characters.")
+        return normalized
+
+    @field_validator("evidence")
+    @classmethod
+    def validate_evidence(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class ReportResponse(BaseModel):
@@ -62,6 +79,8 @@ class ReportListItem(BaseModel):
     reason: str
     reporter: str
     user: str
+    whySuspicious: str
+    suspiciousPercent: int = Field(ge=0, le=100)
 
 
 class ReportsListResponse(BaseModel):
@@ -69,6 +88,7 @@ class ReportsListResponse(BaseModel):
     page: int
     pageSize: int
     total: int
+    availableUsers: list[str] = []
 
 
 class ReportDetailResponse(BaseModel):
@@ -79,4 +99,6 @@ class ReportDetailResponse(BaseModel):
     reason: str
     reporter: str
     user: str
-    notes: str | None = None
+    whySuspicious: str
+    evidence: str | None = None
+    suspiciousPercent: int = Field(ge=0, le=100)

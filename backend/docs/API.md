@@ -37,7 +37,12 @@ Response shape:
 
 Request:
 ```json
-{ "url": "https://example.com", "reason": "phishing_or_scam", "notes": "optional" }
+{
+  "url": "https://example.com",
+  "reason": "phishing_or_scam",
+  "whySuspicious": "Looks like fake login page with urgent wording",
+  "evidence": "optional"
+}
 ```
 
 Case A: New report
@@ -61,11 +66,14 @@ Case B: Existing recent report (deduped)
 }
 ```
 
+Saved report fields include: `reason`, `whySuspicious`, `evidence`, and `suspiciousPercent` (derived from analyzer risk score).
+
 ## GET /api/reports
 
 Query params:
 - `query` (optional): substring match on `url` or `normalizedUrl`
 - `reason` (optional): exact reason filter
+- `user` (optional): exact user filter (e.g., `anonymous`)
 - `since` (optional): `24h`, `7d`, `all`, or ISO timestamp
 - `page` (default `1`)
 - `pageSize` (default `25`, max `100`)
@@ -81,12 +89,15 @@ Response:
       "normalizedUrl": "http://secure-bank-login.ru/verify/account",
       "reason": "phishing_or_scam",
       "reporter": "user",
-      "user": "anonymous"
+      "user": "anonymous",
+      "whySuspicious": "Looks like fake DBS login page with urgent wording",
+      "suspiciousPercent": 92
     }
   ],
   "page": 1,
   "pageSize": 25,
-  "total": 137
+  "total": 137,
+  "availableUsers": ["anonymous"]
 }
 ```
 
@@ -102,7 +113,9 @@ Response:
   "reason": "phishing_or_scam",
   "reporter": "user",
   "user": "anonymous",
-  "notes": "optional"
+  "whySuspicious": "Looks like fake DBS login page with urgent wording",
+  "evidence": "Received from SMS claiming account suspension",
+  "suspiciousPercent": 92
 }
 ```
 

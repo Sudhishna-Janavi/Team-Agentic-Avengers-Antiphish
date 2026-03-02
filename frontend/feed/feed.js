@@ -13,6 +13,7 @@ const feedTotal = document.getElementById("feed-total");
 const queryInput = document.getElementById("filter-query");
 const reasonSelect = document.getElementById("filter-reason");
 const sinceSelect = document.getElementById("filter-since");
+const userSelect = document.getElementById("filter-user");
 const clearFiltersBtn = document.getElementById("clear-filters");
 const prevPageBtn = document.getElementById("prev-page");
 const nextPageBtn = document.getElementById("next-page");
@@ -39,6 +40,12 @@ function formatUtc(value) {
   return new Date(value).toISOString().slice(0, 19).replace("T", " ");
 }
 
+function truncate(value, maxLen = 100) {
+  const text = String(value || "");
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, maxLen - 1)}…`;
+}
+
 async function fetchJson(path) {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {
@@ -56,10 +63,12 @@ function buildListQuery() {
   const query = queryInput.value.trim();
   const reason = reasonSelect.value;
   const since = sinceSelect.value;
+  const user = userSelect.value;
 
   if (query) params.set("query", query);
   if (reason) params.set("reason", reason);
   if (since) params.set("since", since);
+  if (user) params.set("user", user);
 
   return params.toString();
 }
@@ -73,7 +82,7 @@ function updatePagination() {
 
 function renderRows(items) {
   if (!items.length) {
-    feedBody.innerHTML = '<tr><td colspan="5">No reports match your filters.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="7">No reports match your filters.</td></tr>';
     return;
   }
 
@@ -84,12 +93,30 @@ function renderRows(items) {
         <td>${escapeHtml(formatUtc(item.timestamp))}</td>
         <td>${escapeHtml(item.url)}</td>
         <td>${escapeHtml(item.reason)}</td>
+        <td>${escapeHtml(String(item.suspiciousPercent ?? "-"))}%</td>
         <td>${escapeHtml(item.reporter || "user")}</td>
         <td>${escapeHtml(item.user || "anonymous")}</td>
+        <td title="${escapeHtml(item.whySuspicious || "-")}">${escapeHtml(
+          truncate(item.whySuspicious || "-", 96)
+        )}</td>
       </tr>
     `
     )
     .join("");
+}
+
+function renderUserFilterOptions(values) {
+  const current = userSelect.value;
+  userSelect.innerHTML = '<option value="">All users</option>';
+  values.forEach((value) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = value;
+    userSelect.appendChild(opt);
+  });
+  if (current && values.includes(current)) {
+    userSelect.value = current;
+  }
 }
 
 async function loadReports() {
@@ -98,10 +125,11 @@ async function loadReports() {
     state.total = Number(data.total || 0);
     state.lastItems = Array.isArray(data.items) ? data.items : [];
     feedTotal.textContent = `Total: ${state.total}`;
+    renderUserFilterOptions(Array.isArray(data.availableUsers) ? data.availableUsers : []);
     renderRows(state.lastItems);
     updatePagination();
   } catch {
-    feedBody.innerHTML = '<tr><td colspan="5">Could not load reports.</td></tr>';
+    feedBody.innerHTML = '<tr><td colspan="7">Could not load reports.</td></tr>';
   }
 }
 
@@ -143,9 +171,11 @@ async function openDetail(reportId) {
     setText("detail-url", detail.url);
     setText("detail-normalized", detail.normalizedUrl);
     setText("detail-reason", detail.reason);
+    setText("detail-suspicious", `${detail.suspiciousPercent ?? "-"}%`);
     setText("detail-reporter", detail.reporter || "user");
     setText("detail-user", detail.user || "anonymous");
-    setText("detail-notes", detail.notes || "-");
+    setText("detail-why", detail.whySuspicious || "-");
+    setText("detail-evidence", detail.evidence || "-");
 
     copyUrlBtn.dataset.url = detail.url;
     detailModal.showModal();
@@ -179,10 +209,16 @@ sinceSelect.addEventListener("change", () => {
   loadReports();
 });
 
+userSelect.addEventListener("change", () => {
+  state.page = 1;
+  loadReports();
+});
+
 clearFiltersBtn.addEventListener("click", () => {
   queryInput.value = "";
   reasonSelect.value = "";
   sinceSelect.value = "24h";
+  userSelect.value = "";
   state.page = 1;
   loadReports();
 });
