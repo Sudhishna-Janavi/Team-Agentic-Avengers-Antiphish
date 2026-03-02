@@ -20,7 +20,7 @@
 ## Run
 
 ```bash
-cd /Users/jamie/Documents/Hackaton/DLW/frontend
+cd /Users/sudhishna/Desktop/DLW-Hackathon/Team-Agentic-Avengers-Antiphish-main/frontend
 python -m http.server 5173
 ```
 
@@ -29,3 +29,15 @@ Open:
 - `http://127.0.0.1:5173/feed/`
 
 Backend expected at `http://127.0.0.1:8000`.
+
+## Deploy config
+
+Frontend API base is defined in:
+- [config.js](/Users/sudhishna/Desktop/DLW-Hackathon/Team-Agentic-Avengers-Antiphish-main/frontend/config.js)
+
+For production, set:
+```js
+window.__ANTIPHISH_CONFIG__ = {
+  API_BASE: "https://your-backend.onrender.com",
+};
+```
