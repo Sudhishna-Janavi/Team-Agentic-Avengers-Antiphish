@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const proceedBtn = document.getElementById('proceed');
     const safeBtn = document.getElementById('back-safe');
-
-    // Handle "Proceed Anyway" with Handshake
     proceedBtn.addEventListener('click', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const targetUrl = urlParams.get('url');
@@ -14,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 action: "proceedToURL", 
                 url: targetUrl 
             }, (response) => {
-                // Ensure background script acknowledged before redirecting
                 if (chrome.runtime.lastError) {
                     console.error("Communication error:", chrome.runtime.lastError.message);
                     return;
@@ -26,8 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
-
-    // Handle "Back to Safety"
     safeBtn.addEventListener('click', () => {
         window.location.href = "https://www.google.com";
     });

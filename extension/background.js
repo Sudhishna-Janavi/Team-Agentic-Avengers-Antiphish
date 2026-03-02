@@ -1,4 +1,3 @@
-// 1. GLOBAL STATE & LISTENERS (Must be at top-level for MV3)
 let session = null;
 let isEnabled = true;
 const proceedURLs = new Set();
@@ -6,7 +5,7 @@ const proceedURLs = new Set();
 const BLACKLIST = ['rnicrosoft.com', 'paypaI.com', 'amaz0n.com', 'gooogle.com', 'ntu-portal.net'];
 const WHITELIST = ['ntu.edu.sg', 'google.com', 'github.com', 'microsoft.com'];
 
-// Receiver for the "Proceed Anyway" Handshake
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "proceedToURL") {
         console.log("🔓 Whitelisting URL for session:", request.url);
@@ -17,26 +16,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         isEnabled = request.state;
         sendResponse({ status: "updated" });
     }
-    return true; // CRITICAL: Keeps channel open for the response
+    return true; 
 });
 
-// 2. IMPORT LIBRARIES
 importScripts('./lib/ort.min.js');
 
-// 3. NAVIGATION SENTRY (Hybrid Logic)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const urlToCheck = changeInfo.url || tab.url;
     if (!urlToCheck || urlToCheck.startsWith('chrome://')) return;
 
     const domain = new URL(urlToCheck).hostname.toLowerCase();
-
-    // Layer 1: Global Checks
     if (!isEnabled || proceedURLs.has(urlToCheck) || urlToCheck.includes("warning.html")) return;
-
-    // Layer 2: Whitelist (Speed)
     if (WHITELIST.some(site => domain.endsWith(site))) return;
-
-    // Layer 3: Blacklist (Immediate Block)
     if (BLACKLIST.some(site => domain.includes(site))) {
         console.warn("🚨 BLACKLIST MATCH:", domain);
         const warningUrl = chrome.runtime.getURL("warning.html") + "?url=" + encodeURIComponent(urlToCheck);
@@ -44,17 +35,15 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         return; 
     }
 
-    // Layer 4: AI Inference (Zero-Day)
     if (session && changeInfo.status === 'complete') {
         runAIInference(tabId, urlToCheck);
     }
 });
 
-// 4. AI INITIALIZATION (Isolated to prevent script crash)
 async function initModel() {
     try {
         const ortApi = self.ort;
-        ortApi.env.wasm.proxy = false; // Fixes 'import()' error
+        ortApi.env.wasm.proxy = false; 
         ortApi.env.wasm.wasmPaths = chrome.runtime.getURL('lib/');
         
         const modelUrl = chrome.runtime.getURL('model/antiphish_model.onnx');
