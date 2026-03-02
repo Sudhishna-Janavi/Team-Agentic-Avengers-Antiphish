@@ -1,58 +1,104 @@
+from __future__ import annotations
+
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, field_validator
 
 
-class HealthResponse(BaseModel):
-    status: str = "ok"
-    timestamp: datetime
-    version: str
+class AnalyzeRequest(BaseModel):
+    url: str = Field(min_length=3, max_length=2048)
 
 
-class UrlScanRequest(BaseModel):
-    url: HttpUrl
-    source: str = Field(
-        default="web",
-        description="Client source that triggered the scan, e.g. extension, web, api.",
-    )
-
-
-class UrlFeatures(BaseModel):
-    url_length: int
-    subdomain_count: int
-    has_ip_in_domain: bool
-    special_char_count: int
-    suspicious_keyword_hits: int
-    uses_https: bool
-
-
-class UrlScanResponse(BaseModel):
-    url: HttpUrl
-    risk_score: float = Field(..., ge=0.0, le=1.0)
-    verdict: str = Field(..., description="safe | suspicious | likely_phishing")
-    threshold: float = Field(..., ge=0.0, le=1.0)
-    features: UrlFeatures
-    reasons: list[str]
-
-
-class ReportRequest(BaseModel):
-    url: HttpUrl
-    reason: str = Field(..., min_length=5, max_length=300)
-    reporter_type: str = Field(
-        default="user",
-        description="Type of reporter: user, bank, gov, partner",
-    )
-    evidence: str | None = Field(default=None, max_length=500)
-
-
-class ReportResponse(BaseModel):
-    report_id: str
-    status: str
+class Signal(BaseModel):
+    id: str
+    severity: str
     message: str
 
 
-class ThreatIntelItem(BaseModel):
-    report_id: str
-    url: HttpUrl
-    created_at: datetime
+class RecommendedAction(BaseModel):
+    id: str
+    label: str
+
+
+class AnalyzeResponse(BaseModel):
+    url: str
+    normalizedUrl: str
+    timestamp: datetime
+    riskScore: int = Field(ge=0, le=100)
+    riskLabel: str
+    signals: list[Signal]
+    recommendedActions: list[RecommendedAction]
+
+
+class ReportRequest(BaseModel):
+    url: str = Field(min_length=3, max_length=2048)
+    reason: str = Field(min_length=3, max_length=100)
+    whySuspicious: str = Field(min_length=5, max_length=1000)
+    evidence: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed = {"phishing_or_scam", "malware", "impersonation", "other"}
+        if normalized not in allowed:
+            raise ValueError(
+                "reason must be one of: phishing_or_scam, malware, impersonation, other"
+            )
+        return normalized
+
+    @field_validator("whySuspicious")
+    @classmethod
+    def validate_why_suspicious(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 5:
+            raise ValueError("whySuspicious must be at least 5 characters.")
+        return normalized
+
+    @field_validator("evidence")
+    @classmethod
+    def validate_evidence(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class ReportResponse(BaseModel):
+    status: str
+    reportId: str
+    timestamp: datetime
+    deduped: bool
+    message: str | None = None
+
+
+class ReportListItem(BaseModel):
+    reportId: str
+    timestamp: datetime
+    url: str
+    normalizedUrl: str
     reason: str
-    reporter_type: str
+    reporter: str
+    user: str
+    whySuspicious: str
+    suspiciousPercent: int = Field(ge=0, le=100)
+
+
+class ReportsListResponse(BaseModel):
+    items: list[ReportListItem]
+    page: int
+    pageSize: int
+    total: int
+    availableUsers: list[str] = []
+
+
+class ReportDetailResponse(BaseModel):
+    reportId: str
+    timestamp: datetime
+    url: str
+    normalizedUrl: str
+    reason: str
+    reporter: str
+    user: str
+    whySuspicious: str
+    evidence: str | None = None
+    suspiciousPercent: int = Field(ge=0, le=100)

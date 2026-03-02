@@ -1,114 +1,127 @@
-# Antiphish+ API Plan
+# PhishGuard Minimal API
 
-This file is the backend API planning document for team integration.
+Base URL (local): `http://127.0.0.1:8000`
 
-## API goals
-- Give frontend/extension a single place to request phishing verdicts
-- Collect user reports to support community intelligence
-- Provide responder-friendly feed for triage and analysis
-
-## Base URL
-- Local: `http://127.0.0.1:8000`
-- Version prefix: `/api/v1`
-
-## Endpoint contracts
-
-### 1) Health check
-- Method: `GET`
-- Path: `/health`
-- Purpose: Monitoring / demo reliability check
-
-Example response:
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-03-02T07:31:00.000000+00:00",
-  "version": "0.1.0"
-}
-```
-
-### 2) URL scan
-- Method: `POST`
-- Path: `/api/v1/scan-url`
-- Query params:
-  - `threshold` (optional float 0-1, default from env)
-- Purpose: Main detection endpoint for frontend + extension
-
-Request:
-```json
-{
-  "url": "https://secure-login-example.com/account/verify",
-  "source": "extension"
-}
-```
+## GET /api/health
 
 Response:
 ```json
+{ "ok": true }
+```
+
+## POST /api/analyze
+
+Request:
+```json
+{ "url": "https://example.com/path?x=1" }
+```
+
+Response shape:
+```json
 {
-  "url": "https://secure-login-example.com/account/verify",
-  "risk_score": 0.9132,
-  "verdict": "likely_phishing",
-  "threshold": 0.7,
-  "features": {
-    "url_length": 56,
-    "subdomain_count": 1,
-    "has_ip_in_domain": false,
-    "special_char_count": 3,
-    "suspicious_keyword_hits": 2,
-    "uses_https": true
-  },
-  "reasons": [
-    "Suspicious keywords present in URL"
+  "url": "https://example.com/path?x=1",
+  "normalizedUrl": "https://example.com/path?x=1",
+  "timestamp": "2026-03-02T00:00:00+00:00",
+  "riskScore": 18,
+  "riskLabel": "low",
+  "signals": [
+    { "id": "https_present", "severity": "info", "message": "Uses HTTPS." }
+  ],
+  "recommendedActions": [
+    { "id": "verify_sender", "label": "Verify the sender before sharing sensitive info." }
   ]
 }
 ```
 
-### 3) Community report submission
-- Method: `POST`
-- Path: `/api/v1/reports`
-- Purpose: Collect phishing reports for intel pipeline
+## POST /api/report
 
 Request:
 ```json
 {
-  "url": "http://example-scam.site/login",
-  "reason": "Pretending to be DBS login page",
-  "reporter_type": "user",
-  "evidence": "Received via SMS"
+  "url": "https://example.com",
+  "reason": "phishing_or_scam",
+  "whySuspicious": "Looks like fake login page with urgent wording",
+  "evidence": "optional"
 }
 ```
+
+Case A: New report
+```json
+{
+  "status": "ok",
+  "reportId": "uuid",
+  "timestamp": "2026-03-02T00:00:00+00:00",
+  "deduped": false
+}
+```
+
+Case B: Existing recent report (deduped)
+```json
+{
+  "status": "exists",
+  "reportId": "uuid_of_existing",
+  "timestamp": "2026-03-02T00:00:00+00:00",
+  "deduped": true,
+  "message": "This URL was already reported recently."
+}
+```
+
+Saved report fields include: `reason`, `whySuspicious`, `evidence`, and `suspiciousPercent` (derived from analyzer risk score).
+
+## GET /api/reports
+
+Query params:
+- `query` (optional): substring match on `url` or `normalizedUrl`
+- `reason` (optional): exact reason filter
+- `user` (optional): exact user filter (e.g., `anonymous`)
+- `since` (optional): `24h`, `7d`, `all`, or ISO timestamp
+- `page` (default `1`)
+- `pageSize` (default `25`, max `100`)
 
 Response:
 ```json
 {
-  "report_id": "rep_a1b2c3d4e5",
-  "status": "accepted",
-  "message": "Report received. It can now be reviewed by bank/gov responders or used for threat intelligence."
+  "items": [
+    {
+      "reportId": "uuid",
+      "timestamp": "2026-03-02T00:00:00+00:00",
+      "url": "http://secure-bank-login.ru/verify/account",
+      "normalizedUrl": "http://secure-bank-login.ru/verify/account",
+      "reason": "phishing_or_scam",
+      "reporter": "user",
+      "user": "anonymous",
+      "whySuspicious": "Looks like fake DBS login page with urgent wording",
+      "suspiciousPercent": 92
+    }
+  ],
+  "page": 1,
+  "pageSize": 25,
+  "total": 137,
+  "availableUsers": ["anonymous"]
 }
 ```
 
-### 4) Intel feed
-- Method: `GET`
-- Path: `/api/v1/intel-feed`
-- Query params:
-  - `limit` (optional int 1-100, default 20)
-- Purpose: Share latest reports with responder dashboard
+## GET /api/reports/{reportId}
 
-### 5) Stats
-- Method: `GET`
-- Path: `/api/v1/stats`
-- Purpose: Basic operational metric for demo/pitch
+Response:
+```json
+{
+  "reportId": "uuid",
+  "timestamp": "2026-03-02T00:00:00+00:00",
+  "url": "http://secure-bank-login.ru/verify/account",
+  "normalizedUrl": "http://secure-bank-login.ru/verify/account",
+  "reason": "phishing_or_scam",
+  "reporter": "user",
+  "user": "anonymous",
+  "whySuspicious": "Looks like fake DBS login page with urgent wording",
+  "evidence": "Received from SMS claiming account suspension",
+  "suspiciousPercent": 92
+}
+```
 
-## Team integration notes
-
-- Frontend should call `POST /api/v1/scan-url` when user pastes URL.
-- AI/extension can use same route for real-time warning display.
-- Report button should call `POST /api/v1/reports` after warning.
-- Pitch angle: aggregated reports become actionable intelligence for first responders and financial institutions.
-
-## Next improvements after MVP
-- Persist reports in PostgreSQL
-- Add auth + API keys for partner access
-- Add async queue for model inference
-- Replace heuristic scoring with trained RandomForest model endpoint
-- Add URL reputation enrichment (VirusTotal / ScamShield integrations)
+Notes:
+- Reports are saved as JSONL in `./reports/reports.jsonl`.
+- Dedupe key is canonical `normalizedUrl`.
+- Default dedupe window: `REPORT_DEDUPE_SECONDS=86400` (24h).
+- Raw IP is not stored. Only salted SHA-256 hash (`clientIpHash`) is written.
+- URL content is never fetched. Analysis is URL-string only.

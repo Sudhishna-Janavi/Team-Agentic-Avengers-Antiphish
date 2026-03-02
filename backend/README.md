@@ -1,52 +1,65 @@
-# Antiphish+ Backend
+# PhishGuard Backend (Minimal MVP)
 
-Backend service for Antiphish+ hackathon project.
+This backend is intentionally simple and reliable for hackathon use.
 
-## What this backend does
-- Scans URLs and returns phishing risk score + verdict
-- Accepts community phishing reports
-- Exposes a lightweight intel feed for responders (banks/government/partners)
-- Provides auto-generated API docs via FastAPI Swagger
+## Principles
+- No database
+- No Docker required
+- No URL content fetching (no SSRF risk)
+- Stable API response shapes for frontend integration
 
-## Quick start
-
-1. Create virtual environment and install dependencies:
+## Setup
 
 ```bash
 cd backend
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-2. Set environment variables:
-
-```bash
 cp .env.example .env
 ```
 
-3. Run server:
+## Run
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-4. Open docs:
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
+Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-## Folder structure
+## Endpoints
+- `GET /api/health`
+- `POST /api/analyze`
+- `POST /api/report`
+- `GET /api/reports` (filter + pagination)
+- `GET /api/reports/{reportId}`
 
-```text
-backend/
-  app/
-    __init__.py
-    main.py
-    models.py
-    services.py
-  docs/
-    API.md
-  requirements.txt
-  .env.example
-  README.md
+## Community reporting fields
+`POST /api/report` accepts:
+- `url`
+- `reason` (`phishing_or_scam | malware | impersonation | other`)
+- `whySuspicious` (required, min length 5)
+- `evidence` (optional)
+
+All reports are anonymous (`user: anonymous` in this MVP).
+
+Each report stores `suspiciousPercent` computed from analyzer risk score (`riskScore`).
+
+## Feed filtering and pagination
+`GET /api/reports` supports:
+- `query`: URL/domain substring search
+- `reason`: exact reason filter
+- `user`: exact user filter
+- `since`: `24h`, `7d`, `all`, or ISO timestamp
+- `page` / `pageSize`
+
+## Frontend pages
+- Scanner page: `/`
+- Community feed page: `/feed/`
+
+## Tests
+
+```bash
+cd backend
+source .venv/bin/activate
+pytest -q
 ```

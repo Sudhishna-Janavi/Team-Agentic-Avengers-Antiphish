@@ -15,13 +15,13 @@ const tips = [
   },
   {
     title: "Report Fast",
-    body: "Early reporting helps banks and responders block campaigns faster and warn others.",
+    body: "Early reporting helps responders flag malicious patterns faster.",
   },
 ];
 
 const state = {
   lastScannedUrl: "",
-  lastVerdict: "Awaiting Scan",
+  reportedUrls: new Set(),
 };
 
 const scanForm = document.getElementById("scan-form");
@@ -39,11 +39,23 @@ const reportModal = document.getElementById("report-modal");
 const reportForm = document.getElementById("report-form");
 const cancelReport = document.getElementById("cancel-report");
 const reportUrl = document.getElementById("report-url");
-const refreshIntel = document.getElementById("refresh-intel");
-const intelBody = document.getElementById("intel-body");
+const confidencePill = document.getElementById("confidence-pill");
+const explainSummary = document.getElementById("explain-summary");
+const contributors = document.getElementById("contributors");
+const refreshDashboard = document.getElementById("refresh-dashboard");
+const kpiTotal = document.getElementById("kpi-total");
+const kpiReporter = document.getElementById("kpi-reporter");
+const kpiDomain = document.getElementById("kpi-domain");
+const reporterBars = document.getElementById("reporter-bars");
+const domainBars = document.getElementById("domain-bars");
+const hourlyBars = document.getElementById("hourly-bars");
+const alertsList = document.getElementById("alerts-list");
+const streamStatus = document.getElementById("stream-status");
+const demoButtons = document.querySelectorAll(".demo-btn");
+const reportToast = document.getElementById("report-toast");
 
 function escapeHtml(value) {
-  return value
+  return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -51,35 +63,91 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function colorForRisk(score) {
-  if (score >= 0.8) return "var(--danger)";
-  if (score >= 0.5) return "var(--accent-2)";
+function colorForScore(score) {
+  if (score >= 67) return "var(--danger)";
+  if (score >= 34) return "var(--accent-2)";
   return "var(--accent)";
 }
 
-function labelForRisk(score) {
-  if (score >= 0.8) return "Likely Phishing";
-  if (score >= 0.5) return "Suspicious";
-  return "Safe";
+function readableRiskLabel(label) {
+  if (label === "high") return "High Risk";
+  if (label === "medium") return "Medium Risk";
+  return "Low Risk";
 }
 
 function setGauge(score) {
-  const pct = Math.round(score * 100);
-  const color = colorForRisk(score);
+  const pct = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+  const color = colorForScore(pct);
   riskGauge.style.background = `conic-gradient(${color} ${pct}%, #143147 ${pct}%)`;
   riskScore.textContent = `${pct}%`;
-  riskLabel.textContent = labelForRisk(score);
 }
 
-function setReasons(reasons) {
-  if (!reasons.length) {
+function setReasons(messages) {
+  if (!messages.length) {
     reasonList.innerHTML = "<li>No signals returned.</li>";
     return;
   }
+  reasonList.innerHTML = messages.map((msg) => `<li>${escapeHtml(msg)}</li>`).join("");
+}
 
-  reasonList.innerHTML = reasons
-    .map((r) => `<li>${escapeHtml(r)}</li>`)
-    .join("");
+function renderSignalCards(signals) {
+  contributors.innerHTML = "";
+
+  if (!signals.length) {
+    contributors.innerHTML = "<p>No signal details available.</p>";
+    return;
+  }
+
+  signals.forEach((signal) => {
+    const card = document.createElement("article");
+    const sev = String(signal.severity || "info").toLowerCase();
+    const impact = sev === "high" ? "high" : sev === "medium" ? "medium" : "low";
+    card.className = "signal-card";
+    card.innerHTML = `
+      <div class="signal-head">
+        <span class="signal-name">${escapeHtml(String(signal.id || "signal"))}</span>
+        <span class="impact-pill impact-${impact}">${escapeHtml(sev)}</span>
+      </div>
+      <p class="signal-note">${escapeHtml(String(signal.message || ""))}</p>
+    `;
+    contributors.appendChild(card);
+  });
+}
+
+function showToast(message) {
+  if (!reportToast) return;
+  reportToast.textContent = message;
+  reportToast.classList.add("show");
+  window.setTimeout(() => {
+    reportToast.classList.remove("show");
+  }, 2200);
+}
+
+async function refreshReportCount() {
+  try {
+    const data = await fetchJson("/api/reports?page=1&pageSize=1");
+    const total = Number(data.total || 0);
+    reportCount.textContent = `Reports: ${total}`;
+    kpiTotal.textContent = String(total);
+  } catch {
+    reportCount.textContent = "Reports: unknown";
+    kpiTotal.textContent = "-";
+  }
+}
+
+function setLegacySectionsState() {
+  streamStatus.textContent = "Stream: unavailable in minimal backend";
+  streamStatus.style.borderColor = "#5f7f98";
+  alertsList.innerHTML = "<li>Live stream is disabled in this minimal backend.</li>";
+
+  refreshDashboard.disabled = true;
+  refreshDashboard.textContent = "Local Only";
+
+  kpiReporter.textContent = "n/a";
+  kpiDomain.textContent = "n/a";
+  reporterBars.innerHTML = '<p class="modal-help">Disabled in minimal backend.</p>';
+  domainBars.innerHTML = '<p class="modal-help">Disabled in minimal backend.</p>';
+  hourlyBars.innerHTML = '<p class="modal-help">Disabled in minimal backend.</p>';
 }
 
 async function fetchJson(path, options = {}) {
@@ -93,7 +161,16 @@ async function fetchJson(path, options = {}) {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    let message = text || `Request failed: ${res.status}`;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed.detail === "string") {
+        message = parsed.detail;
+      }
+    } catch {
+      // keep fallback text
+    }
+    throw new Error(message);
   }
 
   return res.json();
@@ -101,50 +178,16 @@ async function fetchJson(path, options = {}) {
 
 async function checkHealth() {
   try {
-    await fetchJson("/health");
-    apiStatus.textContent = "API: online";
-    apiStatus.style.borderColor = "#00d2b8";
+    const data = await fetchJson("/api/health");
+    if (data.ok) {
+      apiStatus.textContent = "API: online";
+      apiStatus.style.borderColor = "#00d2b8";
+      return;
+    }
+    throw new Error("Health check failed");
   } catch {
     apiStatus.textContent = "API: offline (start backend)";
     apiStatus.style.borderColor = "#ff5d5d";
-  }
-}
-
-async function refreshStats() {
-  try {
-    const data = await fetchJson("/api/v1/stats");
-    reportCount.textContent = `Reports: ${data.reports_total}`;
-  } catch {
-    reportCount.textContent = "Reports: unknown";
-  }
-}
-
-function renderIntel(items) {
-  if (!items.length) {
-    intelBody.innerHTML = "<tr><td colspan=\"4\">No reports yet.</td></tr>";
-    return;
-  }
-
-  intelBody.innerHTML = items
-    .map(
-      (item) => `
-      <tr>
-        <td>${new Date(item.created_at).toISOString().slice(0, 19).replace("T", " ")}</td>
-        <td>${escapeHtml(item.url)}</td>
-        <td>${escapeHtml(item.reason)}</td>
-        <td>${escapeHtml(item.reporter_type)}</td>
-      </tr>
-    `
-    )
-    .join("");
-}
-
-async function refreshIntelFeed() {
-  try {
-    const items = await fetchJson("/api/v1/intel-feed?limit=12");
-    renderIntel(items);
-  } catch {
-    intelBody.innerHTML = "<tr><td colspan=\"4\">Could not load intel feed.</td></tr>";
   }
 }
 
@@ -157,24 +200,40 @@ scanForm.addEventListener("submit", async (event) => {
   scanBtn.textContent = "Analyzing...";
 
   try {
-    const data = await fetchJson("/api/v1/scan-url", {
+    const data = await fetchJson("/api/analyze", {
       method: "POST",
-      body: JSON.stringify({
-        url,
-        source: "frontend",
-      }),
+      body: JSON.stringify({ url }),
     });
 
-    state.lastScannedUrl = data.url;
-    state.lastVerdict = data.verdict;
+    state.lastScannedUrl = String(data.normalizedUrl || data.url || url);
 
-    resultUrl.textContent = data.url;
-    setGauge(Number(data.risk_score));
-    setReasons(Array.isArray(data.reasons) ? data.reasons : []);
+    resultUrl.textContent = state.lastScannedUrl;
+    setGauge(data.riskScore);
+    riskLabel.textContent = readableRiskLabel(String(data.riskLabel || "low"));
 
-    openReport.disabled = false;
-    openReport.textContent =
-      data.verdict === "safe" ? "Report Anyway" : "Report This URL";
+    const signals = Array.isArray(data.signals) ? data.signals : [];
+    setReasons(signals.map((signal) => signal.message || signal.id || "Signal triggered"));
+    renderSignalCards(signals);
+
+    const actions = Array.isArray(data.recommendedActions)
+      ? data.recommendedActions.map((item) => item.label).filter(Boolean)
+      : [];
+    explainSummary.textContent = actions.length
+      ? `Recommended: ${actions.join(" ")}`
+      : "No recommendations returned.";
+    confidencePill.textContent = `Risk: ${readableRiskLabel(String(data.riskLabel || "low"))}`;
+
+    const normalized = state.lastScannedUrl;
+    const canReport =
+      String(data.riskLabel || "low") !== "low" && !state.reportedUrls.has(normalized);
+    openReport.disabled = !canReport;
+    if (String(data.riskLabel || "low") === "low") {
+      openReport.textContent = "Reporting disabled for safe links";
+    } else if (state.reportedUrls.has(normalized)) {
+      openReport.textContent = "Already reported";
+    } else {
+      openReport.textContent = "Report This URL";
+    }
   } catch (error) {
     riskLabel.textContent = "Scan failed";
     reasonList.innerHTML = `<li>${escapeHtml(error.message)}</li>`;
@@ -195,30 +254,50 @@ cancelReport.addEventListener("click", () => {
 
 reportForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+
   const form = new FormData(reportForm);
+  const category = String(form.get("reason") || "phishing_or_scam").trim();
+  const whySuspicious = String(form.get("whySuspicious") || "").trim();
+  const evidence = String(form.get("evidence") || "").trim();
 
   const payload = {
     url: String(form.get("url") || "").trim(),
-    reason: String(form.get("reason") || "").trim(),
-    reporter_type: String(form.get("reporter_type") || "user"),
-    evidence: String(form.get("evidence") || "").trim() || null,
+    reason: category || "phishing_or_scam",
+    whySuspicious,
+    evidence: evidence || null,
   };
 
   try {
-    await fetchJson("/api/v1/reports", {
+    const report = await fetchJson("/api/report", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    const normalized = state.lastScannedUrl || payload.url;
+    state.reportedUrls.add(normalized);
+
+    if (report.status === "exists" || report.deduped) {
+      showToast("Already reported — thanks!");
+    } else {
+      await refreshReportCount();
+      showToast("Report submitted. Thank you.");
+    }
+
+    openReport.disabled = true;
+    openReport.textContent = "Already reported";
 
     reportModal.close();
     reportForm.reset();
-    await Promise.all([refreshIntelFeed(), refreshStats()]);
   } catch (error) {
     alert(`Could not submit report: ${error.message}`);
   }
 });
 
-refreshIntel.addEventListener("click", refreshIntelFeed);
+demoButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    urlInput.value = btn.dataset.url || "";
+    scanForm.requestSubmit();
+  });
+});
 
 (function renderTips() {
   const host = document.getElementById("tips-grid");
@@ -233,5 +312,8 @@ refreshIntel.addEventListener("click", refreshIntelFeed);
 
 (async function boot() {
   setGauge(0);
-  await Promise.all([checkHealth(), refreshStats(), refreshIntelFeed()]);
+  riskLabel.textContent = "Awaiting Scan";
+  await refreshReportCount();
+  setLegacySectionsState();
+  await checkHealth();
 })();
