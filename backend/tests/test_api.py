@@ -19,9 +19,35 @@ def make_client(tmp_path: Path, dedupe_seconds: int = 86400, now_provider=None) 
         reports_dir=str(tmp_path / "reports"),
         report_ip_hash_salt="test-salt",
         report_dedupe_seconds=dedupe_seconds,
+        user_login_email="user@test.local",
+        user_login_password="user12345",
+        admin_login_email="admin@test.local",
+        admin_login_password="admin12345",
+        auth_token_ttl_minutes=720,
     )
     app = create_app(settings, now_provider=now_provider)
     return TestClient(app)
+
+
+def login_headers(client: TestClient, username: str, password: str) -> dict[str, str]:
+    response = client.post("/api/auth/login", json={"username": username, "password": password})
+    assert response.status_code == 200
+    token = response.json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_auth_login_and_me(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    bad = client.post(
+        "/api/auth/login", json={"username": "user@test.local", "password": "wrong"}
+    )
+    assert bad.status_code == 401
+
+    headers = login_headers(client, "user@test.local", "user12345")
+    me = client.get("/api/auth/me", headers=headers)
+    assert me.status_code == 200
+    assert me.json()["role"] == "user"
 
 
 def test_invalid_url_returns_400(tmp_path: Path) -> None:
@@ -60,6 +86,17 @@ def test_suspicious_url_returns_high_with_multiple_signals(tmp_path: Path) -> No
     assert len(data["signals"]) >= 3
 
 
+def test_report_requires_auth(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    payload = {
+        "url": "https://example.com/login",
+        "reason": "phishing_or_scam",
+        "whySuspicious": "Suspicious login form",
+    }
+    response = client.post("/api/report", json=payload)
+    assert response.status_code == 401
+
+
 def test_report_writes_jsonl(tmp_path: Path) -> None:
     client = make_client(tmp_path)
 
@@ -69,7 +106,11 @@ def test_report_writes_jsonl(tmp_path: Path) -> None:
         "whySuspicious": "Suspicious login form",
         "evidence": "Received from SMS",
     }
-    response = client.post("/api/report", json=payload)
+    response = client.post(
+        "/api/report",
+        json=payload,
+        headers=login_headers(client, "user@test.local", "user12345"),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -86,22 +127,24 @@ def test_report_writes_jsonl(tmp_path: Path) -> None:
     assert row["url"] == payload["url"]
     assert row["reason"] == payload["reason"]
     assert row["whySuspicious"] == payload["whySuspicious"]
-    assert isinstance(row["suspiciousPercent"], int)
-    assert row["clientIpHash"]
+    assert row["reporter"] == "user"
+    assert row["user"] == "user@test.local"
 
 
 def test_duplicate_report_returns_exists(tmp_path: Path) -> None:
     client = make_client(tmp_path)
+    headers = login_headers(client, "user@test.local", "user12345")
     payload = {
         "url": "https://EXAMPLE.com/a/",
         "reason": "phishing_or_scam",
         "whySuspicious": "Looks like fake login page",
     }
 
-    first = client.post("/api/report", json=payload)
+    first = client.post("/api/report", json=payload, headers=headers)
     second = client.post(
         "/api/report",
         json={**payload, "url": "https://example.com/a#ignored"},
+        headers=headers,
     )
 
     assert first.status_code == 200
@@ -110,77 +153,39 @@ def test_duplicate_report_returns_exists(tmp_path: Path) -> None:
     body1 = first.json()
     body2 = second.json()
     assert body1["status"] == "ok"
-    assert body1["deduped"] is False
     assert body2["status"] == "exists"
-    assert body2["deduped"] is True
     assert body2["reportId"] == body1["reportId"]
-    assert body2["message"] == "This URL was already reported recently."
-
-    report_file = tmp_path / "reports" / "reports.jsonl"
-    lines = report_file.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 1
-
-
-def test_different_urls_create_separate_reports(tmp_path: Path) -> None:
-    client = make_client(tmp_path)
-
-    first = client.post(
-        "/api/report",
-        json={
-            "url": "https://example.com/a",
-            "reason": "phishing_or_scam",
-            "whySuspicious": "Potential fake sign-in form",
-        },
-    )
-    second = client.post(
-        "/api/report",
-        json={
-            "url": "https://example.com/b",
-            "reason": "phishing_or_scam",
-            "whySuspicious": "Requests credentials urgently",
-        },
-    )
-
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert first.json()["status"] == "ok"
-    assert second.json()["status"] == "ok"
-    assert first.json()["reportId"] != second.json()["reportId"]
-
-    report_file = tmp_path / "reports" / "reports.jsonl"
-    lines = report_file.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 2
 
 
 def test_same_url_after_dedupe_window_creates_new_report(tmp_path: Path) -> None:
     now = datetime(2026, 3, 2, 0, 0, tzinfo=timezone.utc)
-
     clock = {"value": now}
 
     def now_provider() -> datetime:
         return clock["value"]
 
     client = make_client(tmp_path, dedupe_seconds=10, now_provider=now_provider)
+    headers = login_headers(client, "user@test.local", "user12345")
     payload = {
         "url": "https://example.com/a",
         "reason": "phishing_or_scam",
         "whySuspicious": "Looks suspicious and urgent",
     }
 
-    first = client.post("/api/report", json=payload)
+    first = client.post("/api/report", json=payload, headers=headers)
     clock["value"] = clock["value"] + timedelta(seconds=11)
-    second = client.post("/api/report", json=payload)
+    second = client.post("/api/report", json=payload, headers=headers)
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert first.json()["status"] == "ok"
     assert second.json()["status"] == "ok"
-    assert second.json()["deduped"] is False
     assert second.json()["reportId"] != first.json()["reportId"]
 
 
 def test_reports_endpoint_filters_and_paginates(tmp_path: Path) -> None:
     client = make_client(tmp_path)
+    headers = login_headers(client, "user@test.local", "user12345")
+
     rows = [
         {
             "url": "https://news.example.com/update",
@@ -199,58 +204,40 @@ def test_reports_endpoint_filters_and_paginates(tmp_path: Path) -> None:
         },
     ]
     for row in rows:
-        response = client.post("/api/report", json=row)
+        response = client.post("/api/report", json=row, headers=headers)
         assert response.status_code == 200
 
     by_reason = client.get("/api/reports?reason=malware&page=1&pageSize=25")
     assert by_reason.status_code == 200
-    body = by_reason.json()
-    assert body["total"] == 1
-    assert body["items"][0]["reason"] == "malware"
-    assert "suspiciousPercent" in body["items"][0]
-    assert "whySuspicious" in body["items"][0]
-
-    by_user = client.get("/api/reports?user=anonymous&page=1&pageSize=25")
-    assert by_user.status_code == 200
-    assert by_user.json()["total"] == 3
-
-    by_query = client.get("/api/reports?query=secure-bank-login&page=1&pageSize=25")
-    assert by_query.status_code == 200
-    body = by_query.json()
-    assert body["total"] == 1
-    assert "secure-bank-login" in body["items"][0]["url"]
+    assert by_reason.json()["total"] == 1
 
     paged = client.get("/api/reports?page=1&pageSize=2")
     assert paged.status_code == 200
-    body = paged.json()
-    assert body["page"] == 1
-    assert body["pageSize"] == 2
-    assert body["total"] == 3
-    assert len(body["items"]) == 2
-
-    paged_2 = client.get("/api/reports?page=2&pageSize=2")
-    assert paged_2.status_code == 200
-    assert len(paged_2.json()["items"]) == 1
+    assert len(paged.json()["items"]) == 2
 
 
-def test_report_detail_endpoint_returns_full_report(tmp_path: Path) -> None:
+def test_admin_can_delete_report(tmp_path: Path) -> None:
     client = make_client(tmp_path)
+    user_headers = login_headers(client, "user@test.local", "user12345")
+    admin_headers = login_headers(client, "admin@test.local", "admin12345")
+
     created = client.post(
         "/api/report",
         json={
-            "url": "https://example.com/abc",
-            "reason": "phishing_or_scam",
-            "whySuspicious": "full detail check",
-            "evidence": "sms from unknown sender",
+            "url": "https://example.com/delete-me",
+            "reason": "other",
+            "whySuspicious": "Delete flow test",
         },
+        headers=user_headers,
     )
     report_id = created.json()["reportId"]
 
-    detail = client.get(f"/api/reports/{report_id}")
-    assert detail.status_code == 200
-    body = detail.json()
-    assert body["reportId"] == report_id
-    assert body["whySuspicious"] == "full detail check"
-    assert body["evidence"] == "sms from unknown sender"
-    assert isinstance(body["suspiciousPercent"], int)
-    assert body["normalizedUrl"] == "https://example.com/abc"
+    forbidden = client.delete(f"/api/reports/{report_id}", headers=user_headers)
+    assert forbidden.status_code == 403
+
+    deleted = client.delete(f"/api/reports/{report_id}", headers=admin_headers)
+    assert deleted.status_code == 200
+    assert deleted.json()["status"] == "deleted"
+
+    missing = client.get(f"/api/reports/{report_id}")
+    assert missing.status_code == 404

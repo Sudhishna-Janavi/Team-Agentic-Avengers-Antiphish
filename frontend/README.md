@@ -17,6 +17,11 @@
   - Why is this suspicious? (required)
   - Evidence (optional)
 
+## Login roles
+- Login is required to submit reports.
+- `user`: submit reports
+- `admin`: submit reports + delete reports in `/feed/`
+
 ## Run
 
 ```bash

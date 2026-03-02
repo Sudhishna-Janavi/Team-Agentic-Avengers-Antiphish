@@ -17,8 +17,26 @@
     <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
     <div class="grid-overlay" aria-hidden="true"></div>
     <div id="report-toast" class="toast" role="status" aria-live="polite"></div>
+    <section id="auth-gate" class="auth-gate hidden">
+      <article class="auth-card">
+        <p class="eyebrow">Welcome</p>
+        <h1>Antiphish+ Access</h1>
+        <p class="hero-copy">Sign up or log in with username and password to enter the dashboard.</p>
+        <p class="modal-help">Sign up creates a user account. Admin access uses pre-created admin credentials.</p>
+        <form id="auth-gate-form" class="auth-gate-form">
+          <label for="auth-username">Username</label>
+          <input id="auth-username" type="text" autocomplete="username" required />
+          <label for="auth-password">Password</label>
+          <input id="auth-password" type="password" autocomplete="current-password" required />
+          <div class="auth-gate-actions">
+            <button id="auth-signup" type="button">Sign Up</button>
+            <button id="auth-login" class="ghost-btn" type="button">Log In</button>
+          </div>
+        </form>
+      </article>
+    </section>
 
-    <main class="layout">
+    <main class="layout hidden" id="app-shell">
       <header class="hero card reveal">
         <p class="eyebrow">Community Digital Safety</p>
         <h1>Antiphish+ Command Center</h1>
@@ -29,6 +47,8 @@
         <div class="status-row">
           <span class="status-pill" id="api-status">API: checking...</span>
           <span class="status-pill" id="report-count">Reports: 0</span>
+          <span class="status-pill" id="auth-status">Not logged in</span>
+          <button id="auth-logout" class="ghost-btn" type="button">Logout</button>
           <a class="ghost-btn" href="/feed/">Community Feed</a>
         </div>
       </header>

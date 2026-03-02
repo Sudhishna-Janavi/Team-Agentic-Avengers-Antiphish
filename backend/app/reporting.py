@@ -48,7 +48,7 @@ class StoredReport:
             "normalizedUrl": self.normalized_url,
             "reason": self.reason,
             "reporter": self.reporter,
-            "user": self.user,
+            "user": "private",
             "whySuspicious": self.why_suspicious,
             "suspiciousPercent": self.suspicious_percent,
         }
@@ -74,11 +74,16 @@ class JsonlReportStore:
         self._lock = threading.Lock()
         self._recent_index: dict[str, IndexEntry] = {}
         self._reports: list[StoredReport] = []
+        self._deleted_ids: set[str] = set()
         self._bootstrap_from_disk()
 
     @property
     def report_file(self) -> str:
         return os.path.join(self.reports_dir, "reports.jsonl")
+
+    @property
+    def deleted_file(self) -> str:
+        return os.path.join(self.reports_dir, "deleted_reports.jsonl")
 
     def _hash_ip(self, ip: str) -> str:
         payload = f"{self.salt}:{ip}".encode("utf-8")
@@ -127,6 +132,18 @@ class JsonlReportStore:
         )
 
     def _bootstrap_from_disk(self) -> None:
+        deleted_path = self.deleted_file
+        if os.path.exists(deleted_path):
+            with open(deleted_path, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    try:
+                        row = json.loads(line)
+                        report_id = str(row.get("reportId") or "").strip()
+                        if report_id:
+                            self._deleted_ids.add(report_id)
+                    except Exception:
+                        continue
+
         path = self.report_file
         if not os.path.exists(path):
             return
@@ -138,6 +155,8 @@ class JsonlReportStore:
                     row = json.loads(line)
                     report = self._parse_record(row)
                     if not report:
+                        continue
+                    if report.report_id in self._deleted_ids:
                         continue
                     self._reports.append(report)
                 except Exception:
@@ -164,6 +183,8 @@ class JsonlReportStore:
         normalized_url: str,
         client_ip: str,
         suspicious_percent: int,
+        reporter: str = "user",
+        user: str = "anonymous",
     ) -> ReportResult:
         now = self._now()
 
@@ -190,8 +211,8 @@ class JsonlReportStore:
                 "whySuspicious": payload.whySuspicious,
                 "evidence": payload.evidence,
                 "suspiciousPercent": max(0, min(100, int(suspicious_percent))),
-                "reporter": "user",
-                "user": "anonymous",
+                "reporter": reporter,
+                "user": user,
                 "clientIpHash": self._hash_ip(client_ip),
             }
             self._write_record(record)
@@ -210,6 +231,19 @@ class JsonlReportStore:
                 timestamp=timestamp,
                 deduped=False,
             )
+
+    def delete_report(self, report_id: str) -> bool:
+        with self._lock:
+            for idx, report in enumerate(self._reports):
+                if report.report_id != report_id:
+                    continue
+                self._reports.pop(idx)
+                self._deleted_ids.add(report_id)
+                os.makedirs(self.reports_dir, exist_ok=True)
+                with open(self.deleted_file, "a", encoding="utf-8") as handle:
+                    handle.write(json.dumps({"reportId": report_id}, ensure_ascii=True) + "\n")
+                return True
+        return False
 
     def _resolve_since_cutoff(self, since: str | None) -> datetime | None:
         if not since or since == "all":
@@ -241,10 +275,7 @@ class JsonlReportStore:
         reason_filter = (reason or "").strip().lower()
         user_filter = (user or "").strip().lower()
         cutoff = self._resolve_since_cutoff(since)
-        available_users = sorted(
-            {report.user for report in reports if report.user},
-            key=lambda item: item.lower(),
-        )
+        available_users: list[str] = []
 
         filtered: list[StoredReport] = []
         for report in reports:
