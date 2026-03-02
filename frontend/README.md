@@ -1,48 +1,49 @@
 # Antiphish+ Frontend
 
+Static HTML/CSS/JS frontend for the Antiphish+ platform.  
+Deployed on **Netlify**.
+
 ## Pages
-- `/` scanner page + anonymous community report modal
-- `/feed/` community feed with:
-  - URL/domain search
-  - reason filter
-  - time filter
-  - user filter
-  - pagination
-  - row detail modal
+- `/` — scanner page + community report modal
+- `/feed/` — community feed with search, filters, pagination, and detail modal
 
 ## Reporting UX
-- Reports are anonymous.
+- Login is required to submit reports.
 - Report modal fields:
   - Reason/category (`phishing_or_scam`, `malware`, `impersonation`, `other`)
   - Why is this suspicious? (required)
   - Evidence (optional)
 
 ## Login roles
-- Login is required to submit reports.
 - `user`: submit reports
 - `admin`: submit reports + delete reports in `/feed/`
 
-## Run
+## Run Locally
 
 ```bash
-cd /Users/sudhishna/Desktop/DLW-Hackathon/Team-Agentic-Avengers-Antiphish-main/frontend
-python -m http.server 5173
+cd frontend
+python3 -m http.server 5173
 ```
 
 Open:
-- `http://127.0.0.1:5173/`
-- `http://127.0.0.1:5173/feed/`
+- Scanner: [http://127.0.0.1:5173/](http://127.0.0.1:5173/)
+- Community Feed: [http://127.0.0.1:5173/feed/](http://127.0.0.1:5173/feed/)
 
-Backend expected at `http://127.0.0.1:8000`.
+Backend expected at `http://127.0.0.1:8000` for local development.
 
-## Deploy config
+## Deploy Config
 
-Frontend API base is defined in:
-- [config.js](/Users/sudhishna/Desktop/DLW-Hackathon/Team-Agentic-Avengers-Antiphish-main/frontend/config.js)
+The frontend API base URL is defined in [config.js](config.js):
 
-For production, set:
 ```js
 window.__ANTIPHISH_CONFIG__ = {
-  API_BASE: "https://your-backend.onrender.com",
+  API_BASE: "https://team-agentic-avengers-antiphish.onrender.com",
 };
 ```
+
+## Deployment (Netlify)
+1. Import the GitHub repo in Netlify.
+2. Set **Base directory** to `frontend`.
+3. Set **Publish directory** to `frontend`.
+4. Deploy.
+5. Ensure `config.js` points to the Render backend URL above.

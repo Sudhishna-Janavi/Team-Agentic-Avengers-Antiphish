@@ -1,30 +1,43 @@
-# PhishGuard Backend (Minimal MVP)
+# Antiphish+ Backend
 
-This backend is intentionally simple and reliable for hackathon use.
+Python 3.12 / FastAPI backend for the Antiphish+ platform.  
+Deployed on **Render**: https://team-agentic-avengers-antiphish.onrender.com
 
 ## Principles
-- No database
+- No database — reports stored in JSONL files on disk
 - No Docker required
 - No URL content fetching (no SSRF risk)
 - Stable API response shapes for frontend integration
+
+## Dependencies
+- `fastapi==0.115.8` — API framework
+- `uvicorn[standard]==0.34.0` — ASGI server
+- `pydantic==2.10.6` — request/response validation
+- `python-dotenv==1.0.1` — environment variable handling
+- `pytest==8.3.4` — testing
 
 ## Setup
 
 ```bash
 cd backend
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-## Run
+## Run Locally
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+## Production
+
+- Deployed on Render at: https://team-agentic-avengers-antiphish.onrender.com
+- API docs: https://team-agentic-avengers-antiphish.onrender.com/docs
 
 ## Endpoints
 - `GET /api/health`
@@ -67,6 +80,11 @@ Configure credentials in `.env`:
 ## Frontend pages
 - Scanner page: `/`
 - Community feed page: `/feed/`
+
+## Data Storage
+- Reports are stored in `reports.jsonl` inside the data directory
+- Deleted reports tracked in `deleted_reports.jsonl`
+- No external database required
 
 ## Tests
 
