@@ -1,0 +1,127 @@
+PHISHING DETECTION PIPELINE - MODEL PERFORMANCE AUDIT
+=======================================================
+
+MODEL: RandomForest
+-------------------
+1. Overall Accuracy: 0.8529
+2. F1-Score:         0.8626
+3. 3-Fold CV F1:     0.8566
+4. AUC-ROC Score:    0.8994 (Separation Power)
+5. Avg Precision:    0.8827 (PR Curve Summary)
+
+CONFUSION MATRIX:
+  [True Neg: 821]  [False Pos: 123] <-- (Legit Blocked)
+  [False Neg: 186] [True Pos: 970] <-- (Phishing Caught)
+
+TOP SIGNIFICANT FEATURES:
+LineOfCode          0.383477
+NoOfExternalRef     0.170009
+NoOfImage           0.126380
+ObfuscationIndex    0.093969
+DomainAgeMonths     0.074554
+
+DETAILED CLASSIFICATION REPORT:
+              precision    recall  f1-score   support
+
+           0       0.82      0.87      0.84       944
+           1       0.89      0.84      0.86      1156
+
+    accuracy                           0.85      2100
+   macro avg       0.85      0.85      0.85      2100
+weighted avg       0.86      0.85      0.85      2100
+
+=======================================================
+
+MODEL: XGBoost
+--------------
+1. Overall Accuracy: 0.8457
+2. F1-Score:         0.8559
+3. 3-Fold CV F1:     0.8552
+4. AUC-ROC Score:    0.8947 (Separation Power)
+5. Avg Precision:    0.8777 (PR Curve Summary)
+
+CONFUSION MATRIX:
+  [True Neg: 814]  [False Pos: 130] <-- (Legit Blocked)
+  [False Neg: 194] [True Pos: 962] <-- (Phishing Caught)
+
+TOP SIGNIFICANT FEATURES:
+LineOfCode          0.510558
+NoOfExternalRef     0.212500
+ObfuscationIndex    0.037714
+Industry_Enc        0.033215
+Robots              0.032417
+
+DETAILED CLASSIFICATION REPORT:
+              precision    recall  f1-score   support
+
+           0       0.81      0.86      0.83       944
+           1       0.88      0.83      0.86      1156
+
+    accuracy                           0.85      2100
+   macro avg       0.84      0.85      0.84      2100
+weighted avg       0.85      0.85      0.85      2100
+
+=======================================================
+
+MODEL: LightGBM
+---------------
+1. Overall Accuracy: 0.8486
+2. F1-Score:         0.8592
+3. 3-Fold CV F1:     0.8555
+4. AUC-ROC Score:    0.9005 (Separation Power)
+5. Avg Precision:    0.8858 (PR Curve Summary)
+
+CONFUSION MATRIX:
+  [True Neg: 812]  [False Pos: 132] <-- (Legit Blocked)
+  [False Neg: 186] [True Pos: 970] <-- (Phishing Caught)
+
+TOP SIGNIFICANT FEATURES:
+LineOfCode          485
+ObfuscationIndex    485
+DomainAgeMonths     436
+NoOfExternalRef     416
+NoOfImage           314
+
+DETAILED CLASSIFICATION REPORT:
+              precision    recall  f1-score   support
+
+           0       0.81      0.86      0.84       944
+           1       0.88      0.84      0.86      1156
+
+    accuracy                           0.85      2100
+   macro avg       0.85      0.85      0.85      2100
+weighted avg       0.85      0.85      0.85      2100
+
+=======================================================
+
+MODEL: LogisticRegression
+-------------------------
+1. Overall Accuracy: 0.7514
+2. F1-Score:         0.7748
+3. 3-Fold CV F1:     0.7778
+4. AUC-ROC Score:    0.7919 (Separation Power)
+5. Avg Precision:    0.8085 (PR Curve Summary)
+
+CONFUSION MATRIX:
+  [True Neg: 680]  [False Pos: 264] <-- (Legit Blocked)
+  [False Neg: 258] [True Pos: 898] <-- (Phishing Caught)
+
+TOP SIGNIFICANT FEATURES:
+LineOfCode             0.761704
+AgeCategory            0.760001
+HostingProvider_Enc    0.384053
+IsResponsive           0.334852
+NoOfExternalRef        0.203661
+
+DETAILED CLASSIFICATION REPORT:
+              precision    recall  f1-score   support
+
+           0       0.72      0.72      0.72       944
+           1       0.77      0.78      0.77      1156
+
+    accuracy                           0.75      2100
+   macro avg       0.75      0.75      0.75      2100
+weighted avg       0.75      0.75      0.75      2100
+
+=======================================================
+
