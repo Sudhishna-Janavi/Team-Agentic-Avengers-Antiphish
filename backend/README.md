@@ -1,61 +1,89 @@
-# Antiphish+ Backend
+# PhishGuard Backend (Minimal MVP)
 
-Backend service for Antiphish+ hackathon project.
+This backend is intentionally simple and reliable for hackathon use.
 
-## What this backend does
-- Scans URLs and returns phishing risk score + verdict
-- Accepts community phishing reports (with optional reporter name)
-- Exposes a lightweight intel feed for responders (banks/government/partners)
-- Streams live report alerts with SSE (`/api/v1/alerts/stream`)
-- Persists reports to SQLite (`backend/data/antiphish.db`)
-- Provides auto-generated API docs via FastAPI Swagger
+## Principles
+- No database
+- No Docker required
+- No URL content fetching (no SSRF risk)
+- Stable API response shapes for frontend integration
 
-## Quick start
-
-1. Create virtual environment and install dependencies:
+## Setup
 
 ```bash
 cd backend
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-2. Set environment variables:
-
-```bash
 cp .env.example .env
 ```
 
-Default `.env` uses:
-- `DB_PATH=./data/antiphish.db`
-
-3. Run server:
+## Run
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-4. Open docs:
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
+Open docs at: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-## Notes
-- This build intentionally has no account login/registration flow.
-- Reports can include optional reporter name for attribution.
+## Endpoints
+- `GET /api/health`
+- `POST /api/analyze`
+- `POST /api/report`
 
-## Folder structure
+## curl examples
 
-```text
-backend/
-  app/
-    __init__.py
-    main.py
-    models.py
-    services.py
-  docs/
-    API.md
-  requirements.txt
-  .env.example
-  README.md
+Health:
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
+Analyze:
+```bash
+curl -X POST http://127.0.0.1:8000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/path?x=1"}'
+```
+
+Report:
+```bash
+curl -X POST http://127.0.0.1:8000/api/report \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com","reason":"phishing_or_scam","notes":"optional"}'
+```
+
+## How scoring works (deterministic heuristics)
+
+The engine normalizes the URL and scores based on explainable signals:
+- scheme (`http` vs `https`)
+- IP address hostname
+- suspicious TLD
+- many subdomains
+- very long URL
+- deceptive keywords (`login`, `verify`, `secure`, etc.)
+- `@` in URL
+- punycode (`xn--`)
+- unusual ports
+- double encoding patterns
+- simple lookalike checks against: `google.com`, `apple.com`, `microsoft.com`, `paypal.com`
+
+Response always includes:
+- `riskScore` (0-100)
+- `riskLabel` (`low`/`medium`/`high`)
+- `signals[]` with human-readable reasons
+- `recommendedActions[]`
+
+## Reports storage
+
+Reports are appended to newline-delimited JSON at:
+- `./reports/reports.jsonl`
+
+If client IP is recorded, only salted hash is stored (`clientIpHash`), not raw IP.
+
+## Tests
+
+```bash
+cd backend
+source .venv/bin/activate
+pytest -q
 ```

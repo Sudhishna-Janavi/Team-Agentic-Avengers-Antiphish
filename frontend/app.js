@@ -15,13 +15,13 @@ const tips = [
   },
   {
     title: "Report Fast",
-    body: "Early reporting helps banks and responders block campaigns faster and warn others.",
+    body: "Early reporting helps responders flag malicious patterns faster.",
   },
 ];
 
 const state = {
   lastScannedUrl: "",
-  eventSource: null,
+  reports: [],
 };
 
 const scanForm = document.getElementById("scan-form");
@@ -64,61 +64,101 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function colorForRisk(score) {
-  if (score >= 0.8) return "var(--danger)";
-  if (score >= 0.5) return "var(--accent-2)";
+function colorForScore(score) {
+  if (score >= 67) return "var(--danger)";
+  if (score >= 34) return "var(--accent-2)";
   return "var(--accent)";
 }
 
-function labelForRisk(score) {
-  if (score >= 0.8) return "Likely Phishing";
-  if (score >= 0.5) return "Suspicious";
-  return "Safe";
+function readableRiskLabel(label) {
+  if (label === "high") return "High Risk";
+  if (label === "medium") return "Medium Risk";
+  return "Low Risk";
 }
 
 function setGauge(score) {
-  const pct = Math.max(0, Math.min(100, Math.round(score * 100)));
-  const color = colorForRisk(score);
+  const pct = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+  const color = colorForScore(pct);
   riskGauge.style.background = `conic-gradient(${color} ${pct}%, #143147 ${pct}%)`;
   riskScore.textContent = `${pct}%`;
-  riskLabel.textContent = labelForRisk(score);
 }
 
-function setReasons(reasons) {
-  if (!reasons.length) {
+function setReasons(messages) {
+  if (!messages.length) {
     reasonList.innerHTML = "<li>No signals returned.</li>";
     return;
   }
-  reasonList.innerHTML = reasons.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+  reasonList.innerHTML = messages.map((msg) => `<li>${escapeHtml(msg)}</li>`).join("");
 }
 
-function humanizeSignalName(signal) {
-  return String(signal)
-    .split("_")
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function renderContributors(items) {
+function renderSignalCards(signals) {
   contributors.innerHTML = "";
-  if (!items.length) {
-    contributors.innerHTML = "<p>No contributor signals available yet.</p>";
+
+  if (!signals.length) {
+    contributors.innerHTML = "<p>No signal details available.</p>";
     return;
   }
 
-  items.forEach((item) => {
+  signals.forEach((signal) => {
     const card = document.createElement("article");
+    const sev = String(signal.severity || "info").toLowerCase();
+    const impact = sev === "high" ? "high" : sev === "medium" ? "medium" : "low";
     card.className = "signal-card";
     card.innerHTML = `
       <div class="signal-head">
-        <span class="signal-name">${escapeHtml(humanizeSignalName(item.signal))}</span>
-        <span class="impact-pill impact-${escapeHtml(item.impact)}">${escapeHtml(item.impact)}</span>
+        <span class="signal-name">${escapeHtml(String(signal.id || "signal"))}</span>
+        <span class="impact-pill impact-${impact}">${escapeHtml(sev)}</span>
       </div>
-      <p class="signal-note">${escapeHtml(item.note)}</p>
-      <span class="signal-weight">weight: ${Number(item.weight).toFixed(4)}</span>
+      <p class="signal-note">${escapeHtml(String(signal.message || ""))}</p>
     `;
     contributors.appendChild(card);
   });
+}
+
+function updateLocalReportCount() {
+  reportCount.textContent = `Reports: ${state.reports.length}`;
+  kpiTotal.textContent = String(state.reports.length);
+}
+
+function renderLocalIntel() {
+  if (!state.reports.length) {
+    intelBody.innerHTML = '<tr><td colspan="5">No reports yet.</td></tr>';
+    return;
+  }
+
+  intelBody.innerHTML = state.reports
+    .slice()
+    .reverse()
+    .map(
+      (item) => `
+      <tr>
+        <td>${escapeHtml(item.time)}</td>
+        <td>${escapeHtml(item.url)}</td>
+        <td>${escapeHtml(item.reason)}</td>
+        <td>${escapeHtml(item.reporterType)}</td>
+        <td>${escapeHtml(item.reporterUser)}</td>
+      </tr>
+    `
+    )
+    .join("");
+}
+
+function setLegacySectionsState() {
+  streamStatus.textContent = "Stream: unavailable in minimal backend";
+  streamStatus.style.borderColor = "#5f7f98";
+  alertsList.innerHTML = "<li>Live stream is disabled in this minimal backend.</li>";
+
+  refreshIntel.disabled = true;
+  refreshIntel.textContent = "Local Feed";
+
+  refreshDashboard.disabled = true;
+  refreshDashboard.textContent = "Local Only";
+
+  kpiReporter.textContent = "n/a";
+  kpiDomain.textContent = "n/a";
+  reporterBars.innerHTML = '<p class="modal-help">Disabled in minimal backend.</p>';
+  domainBars.innerHTML = '<p class="modal-help">Disabled in minimal backend.</p>';
+  hourlyBars.innerHTML = '<p class="modal-help">Disabled in minimal backend.</p>';
 }
 
 async function fetchJson(path, options = {}) {
@@ -139,7 +179,7 @@ async function fetchJson(path, options = {}) {
         message = parsed.detail;
       }
     } catch {
-      // keep message
+      // keep fallback text
     }
     throw new Error(message);
   }
@@ -149,138 +189,17 @@ async function fetchJson(path, options = {}) {
 
 async function checkHealth() {
   try {
-    await fetchJson("/health");
-    apiStatus.textContent = "API: online";
-    apiStatus.style.borderColor = "#00d2b8";
+    const data = await fetchJson("/api/health");
+    if (data.ok) {
+      apiStatus.textContent = "API: online";
+      apiStatus.style.borderColor = "#00d2b8";
+      return;
+    }
+    throw new Error("Health check failed");
   } catch {
     apiStatus.textContent = "API: offline (start backend)";
     apiStatus.style.borderColor = "#ff5d5d";
   }
-}
-
-async function refreshStats() {
-  try {
-    const data = await fetchJson("/api/v1/stats");
-    reportCount.textContent = `Reports: ${data.reports_total}`;
-  } catch {
-    reportCount.textContent = "Reports: unknown";
-  }
-}
-
-function renderIntel(items) {
-  if (!items.length) {
-    intelBody.innerHTML = "<tr><td colspan=\"5\">No reports yet.</td></tr>";
-    return;
-  }
-
-  intelBody.innerHTML = items
-    .map(
-      (item) => `
-      <tr>
-        <td>${new Date(item.created_at).toISOString().slice(0, 19).replace("T", " ")}</td>
-        <td>${escapeHtml(item.url)}</td>
-        <td>${escapeHtml(item.reason)}</td>
-        <td>${escapeHtml(item.reporter_type)}</td>
-        <td>${escapeHtml(item.reporter_user || "anonymous")}</td>
-      </tr>
-    `
-    )
-    .join("");
-}
-
-function renderBars(host, items, labelKey, valueKey) {
-  const tpl = document.getElementById("bar-template");
-  host.innerHTML = "";
-  if (!items.length) {
-    host.innerHTML = "<p class=\"modal-help\">No data yet.</p>";
-    return;
-  }
-
-  const maxValue = Math.max(...items.map((item) => Number(item[valueKey] || 0)), 1);
-  items.forEach((item) => {
-    const node = tpl.content.cloneNode(true);
-    const label = String(item[labelKey]);
-    const value = Number(item[valueKey] || 0);
-    const pct = Math.round((value / maxValue) * 100);
-
-    node.querySelector(".bar-label").textContent = label;
-    node.querySelector(".bar-value").textContent = String(value);
-    node.querySelector(".bar-fill").style.width = `${pct}%`;
-    host.appendChild(node);
-  });
-}
-
-async function refreshDashboardStats() {
-  try {
-    const data = await fetchJson("/api/v1/dashboard-stats");
-    kpiTotal.textContent = String(data.reports_total ?? 0);
-    kpiReporter.textContent = data.reporters?.[0]?.reporter_type ?? "-";
-    kpiDomain.textContent = data.top_domains?.[0]?.domain ?? "-";
-
-    renderBars(reporterBars, data.reporters || [], "reporter_type", "count");
-    renderBars(domainBars, data.top_domains || [], "domain", "count");
-    renderBars(hourlyBars, data.hourly_trend || [], "hour_utc", "count");
-  } catch {
-    reporterBars.innerHTML = "<p class=\"modal-help\">Could not load dashboard data.</p>";
-    domainBars.innerHTML = "<p class=\"modal-help\">Could not load dashboard data.</p>";
-    hourlyBars.innerHTML = "<p class=\"modal-help\">Could not load dashboard data.</p>";
-  }
-}
-
-async function refreshIntelFeed() {
-  try {
-    const items = await fetchJson("/api/v1/intel-feed?limit=12");
-    renderIntel(items);
-  } catch {
-    intelBody.innerHTML = "<tr><td colspan=\"5\">Could not load intel feed.</td></tr>";
-  }
-}
-
-function prependAlert(item) {
-  const noData = alertsList.querySelector("li")?.textContent === "No live alerts yet.";
-  if (noData) alertsList.innerHTML = "";
-
-  const li = document.createElement("li");
-  li.className = "alert-item";
-  li.innerHTML = `
-    <div class="alert-url">${escapeHtml(item.url)}</div>
-    <div class="alert-meta">${escapeHtml(item.reporter_type)} by ${escapeHtml(item.reporter_user || "anonymous")} at ${new Date(item.created_at).toISOString()}</div>
-    <div class="alert-reason">${escapeHtml(item.reason)}</div>
-  `;
-  alertsList.prepend(li);
-
-  while (alertsList.children.length > 10) {
-    alertsList.removeChild(alertsList.lastElementChild);
-  }
-}
-
-function connectAlertStream() {
-  if (state.eventSource) state.eventSource.close();
-  const stream = new EventSource(`${API_BASE}/api/v1/alerts/stream`);
-  state.eventSource = stream;
-
-  streamStatus.textContent = "Stream: connecting...";
-  streamStatus.style.borderColor = "#ffb703";
-
-  stream.onopen = () => {
-    streamStatus.textContent = "Stream: connected";
-    streamStatus.style.borderColor = "#00d2b8";
-  };
-
-  stream.addEventListener("new_report", async (evt) => {
-    try {
-      const payload = JSON.parse(evt.data);
-      prependAlert(payload);
-      await Promise.all([refreshIntelFeed(), refreshStats(), refreshDashboardStats()]);
-    } catch {
-      // ignore malformed event payload
-    }
-  });
-
-  stream.onerror = () => {
-    streamStatus.textContent = "Stream: reconnecting...";
-    streamStatus.style.borderColor = "#ffb703";
-  };
 }
 
 scanForm.addEventListener("submit", async (event) => {
@@ -292,29 +211,31 @@ scanForm.addEventListener("submit", async (event) => {
   scanBtn.textContent = "Analyzing...";
 
   try {
-    const data = await fetchJson("/api/v1/scan-url", {
+    const data = await fetchJson("/api/analyze", {
       method: "POST",
-      body: JSON.stringify({
-        url,
-        source: "frontend",
-      }),
+      body: JSON.stringify({ url }),
     });
 
-    state.lastScannedUrl = data.url;
+    state.lastScannedUrl = String(data.normalizedUrl || data.url || url);
 
-    resultUrl.textContent = data.url;
-    setGauge(Number(data.risk_score));
-    setReasons(Array.isArray(data.reasons) ? data.reasons : []);
-    explainSummary.textContent =
-      data.explanation?.summary || "No explanation returned by model.";
-    confidencePill.textContent = `Confidence: ${Math.round(
-      Number(data.explanation?.confidence || 0) * 100
-    )}%`;
-    renderContributors(data.explanation?.contributors || []);
+    resultUrl.textContent = state.lastScannedUrl;
+    setGauge(data.riskScore);
+    riskLabel.textContent = readableRiskLabel(String(data.riskLabel || "low"));
+
+    const signals = Array.isArray(data.signals) ? data.signals : [];
+    setReasons(signals.map((signal) => signal.message || signal.id || "Signal triggered"));
+    renderSignalCards(signals);
+
+    const actions = Array.isArray(data.recommendedActions)
+      ? data.recommendedActions.map((item) => item.label).filter(Boolean)
+      : [];
+    explainSummary.textContent = actions.length
+      ? `Recommended: ${actions.join(" ")}`
+      : "No recommendations returned.";
+    confidencePill.textContent = `Risk: ${readableRiskLabel(String(data.riskLabel || "low"))}`;
 
     openReport.disabled = false;
-    openReport.textContent =
-      data.verdict === "safe" ? "Report Anyway" : "Report This URL";
+    openReport.textContent = data.riskLabel === "low" ? "Report Anyway" : "Report This URL";
   } catch (error) {
     riskLabel.textContent = "Scan failed";
     reasonList.innerHTML = `<li>${escapeHtml(error.message)}</li>`;
@@ -337,30 +258,42 @@ reportForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const form = new FormData(reportForm);
+  const userReason = String(form.get("reason") || "").trim();
+  const reporterType = String(form.get("reporter_type") || "user").trim();
+  const reporterName = String(form.get("reporter_name") || "").trim() || "anonymous";
+  const evidence = String(form.get("evidence") || "").trim();
+
+  const notesParts = [userReason, evidence].filter(Boolean);
   const payload = {
     url: String(form.get("url") || "").trim(),
-    reason: String(form.get("reason") || "").trim(),
-    reporter_type: String(form.get("reporter_type") || "user"),
-    reporter_name: String(form.get("reporter_name") || "").trim() || null,
-    evidence: String(form.get("evidence") || "").trim() || null,
+    reason: "phishing_or_scam",
+    notes: notesParts.join(" | ") || null,
   };
 
   try {
-    await fetchJson("/api/v1/reports", {
+    const report = await fetchJson("/api/report", {
       method: "POST",
       body: JSON.stringify(payload),
     });
 
+    state.reports.push({
+      id: report.reportId,
+      time: new Date(report.timestamp).toISOString().slice(0, 19).replace("T", " "),
+      url: payload.url,
+      reason: payload.reason,
+      reporterType,
+      reporterUser: reporterName,
+    });
+
+    updateLocalReportCount();
+    renderLocalIntel();
+
     reportModal.close();
     reportForm.reset();
-    await Promise.all([refreshIntelFeed(), refreshStats(), refreshDashboardStats()]);
   } catch (error) {
     alert(`Could not submit report: ${error.message}`);
   }
 });
-
-refreshIntel.addEventListener("click", refreshIntelFeed);
-refreshDashboard.addEventListener("click", refreshDashboardStats);
 
 demoButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -382,11 +315,9 @@ demoButtons.forEach((btn) => {
 
 (async function boot() {
   setGauge(0);
-  connectAlertStream();
-  await Promise.all([
-    checkHealth(),
-    refreshStats(),
-    refreshIntelFeed(),
-    refreshDashboardStats(),
-  ]);
+  riskLabel.textContent = "Awaiting Scan";
+  updateLocalReportCount();
+  renderLocalIntel();
+  setLegacySectionsState();
+  await checkHealth();
 })();
