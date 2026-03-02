@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phishing Link Checker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb bg-orb-left" aria-hidden="true"></div>
+    <div class="bg-orb bg-orb-right" aria-hidden="true"></div>
+
+    <header class="top-nav" aria-label="Main">
+      <div class="brand">PhishGuard</div>
+      <nav class="nav-links">
+        <a href="#how-it-works">How it works</a>
+        <a href="#extension">Browser Extension</a>
+        <a href="#report">Report Link</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" id="checker">
+        <p class="eyebrow">Beginner-friendly phishing protection</p>
+        <h1>Check a suspicious link before you click.</h1>
+        <p class="subtitle">
+          Paste any URL to get a clear risk score, explainable AI reasons, and safe next actions.
+        </p>
+
+        <form id="scan-form" class="scan-card" novalidate>
+          <label for="url-input" class="sr-only">URL to analyze</label>
+          <input
+            id="url-input"
+            name="url"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="https://example.com/login"
+            required
+            aria-describedby="input-hint"
+          />
+          <button type="submit" id="scan-btn">Check Link Safety</button>
+          <p id="input-hint" class="hint">We do not auto-submit links publicly.</p>
+        </form>
+
+        <div class="helper-chips" aria-label="Feature highlights">
+          <span>Checks phishing patterns</span>
+          <span>AI explains why</span>
+          <span>You choose to report</span>
+        </div>
+      </section>
+
+      <section id="result" class="result-panel hidden" aria-live="polite">
+        <div class="result-top">
+          <div>
+            <p class="result-label">Analysis Result</p>
+            <h2 id="risk-title">Potential Phishing</h2>
+            <p id="scan-date" class="scan-date"></p>
+          </div>
+          <div id="risk-badge" class="risk-badge">High Risk</div>
+        </div>
+
+        <div class="risk-meter-block" aria-label="Risk score">
+          <div class="risk-meter-meta">
+            <span>Risk Score</span>
+            <strong id="risk-score">82 / 100</strong>
+          </div>
+          <div class="risk-meter" role="img" aria-label="Risk score meter">
+            <div id="risk-fill" class="risk-fill"></div>
+          </div>
+          <p id="risk-warning" class="risk-warning"></p>
+        </div>
+
+        <div class="result-grid">
+          <article class="card">
+            <h3>Why this result?</h3>
+            <ul id="reason-list" class="reason-list"></ul>
+          </article>
+
+          <article class="card" id="report">
+            <h3>Recommended Next Steps</h3>
+            <div class="actions">
+              <button class="btn-ghost" type="button">Do Not Open Link</button>
+              <button class="btn-secondary" type="button">Copy Result</button>
+              <button class="btn-alert" type="button" id="report-btn">Report as Malicious</button>
+            </div>
+            <p id="report-feedback" class="feedback" role="status" aria-live="polite"></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="info-grid" id="how-it-works">
+        <article class="info-card">
+          <h3>1. Paste the link</h3>
+          <p>Drop a URL into the checker. No account is required.</p>
+        </article>
+        <article class="info-card">
+          <h3>2. Read the risk</h3>
+          <p>Understand the score and plain-language reasons behind it.</p>
+        </article>
+        <article class="info-card">
+          <h3>3. Stay protected</h3>
+          <p>Install browser protection for automatic warnings while browsing.</p>
+        </article>
+      </section>
+
+      <section id="extension" class="extension-card">
+        <div>
+          <p class="eyebrow">Coming soon</p>
+          <h2>Install Browser Protection</h2>
+          <p>Get real-time phishing alerts directly in your browser.</p>
+        </div>
+        <button type="button" class="btn-secondary">Notify Me</button>
+      </section>
+    </main>
+
+    <footer>
+      <p>No account required</p>
+      <p>We only store reports you submit</p>
+      <p>AI-assisted results, not legal advice</p>
+    </footer>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
