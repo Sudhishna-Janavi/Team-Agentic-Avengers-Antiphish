@@ -4,7 +4,7 @@ Antiphish+ is a digital safety platform that helps users detect suspicious URLs,
 
 ## Live URLs
 
-- **Frontend (Netlify):** https://antiphish.netlify.app _(update with your actual Netlify URL)_
+- **Live Website:** https://team-agentic-avengers-antiphish.vercel.app
 - **Backend (Render):** https://team-agentic-avengers-antiphish.onrender.com
 - **API docs:** https://team-agentic-avengers-antiphish.onrender.com/docs
 
