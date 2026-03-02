@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Antiphish+ | Digital Safety Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
+    <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
+    <div class="grid-overlay" aria-hidden="true"></div>
+
+    <main class="layout">
+      <header class="hero card reveal">
+        <p class="eyebrow">Community Digital Safety</p>
+        <h1>Antiphish+ Command Center</h1>
+        <p class="hero-copy">
+          Scan suspicious links instantly, submit community reports, and surface
+          threat intelligence for first responders, banks, and public agencies.
+        </p>
+        <div class="status-row">
+          <span class="status-pill" id="api-status">API: checking...</span>
+          <span class="status-pill" id="report-count">Reports: 0</span>
+        </div>
+      </header>
+
+      <section class="scan-panel card reveal">
+        <div>
+          <h2>Live URL Risk Scanner</h2>
+          <p>Paste a link and get an immediate phishing risk verdict.</p>
+        </div>
+
+        <form id="scan-form" class="scan-form">
+          <label for="url-input">Enter URL</label>
+          <div class="input-row">
+            <input
+              id="url-input"
+              name="url"
+              type="url"
+              placeholder="https://example.com/login"
+              required
+            />
+            <button type="submit" id="scan-btn">Analyze</button>
+          </div>
+        </form>
+        <div class="demo-row" id="demo-row">
+          <button class="ghost-btn demo-btn" type="button" data-url="https://www.nytimes.com">
+            Demo Safe URL
+          </button>
+          <button
+            class="ghost-btn demo-btn"
+            type="button"
+            data-url="http://secure-bank-login.ru/verify/account"
+          >
+            Demo Suspicious URL
+          </button>
+          <button
+            class="ghost-btn demo-btn"
+            type="button"
+            data-url="http://192.168.0.1/login?verify=1"
+          >
+            Demo High Risk Pattern
+          </button>
+        </div>
+
+        <div class="scan-output">
+          <article class="gauge-wrap">
+            <div class="gauge" id="risk-gauge" role="img" aria-label="Risk gauge">
+              <div class="gauge-inner">
+                <span class="gauge-score" id="risk-score">0%</span>
+                <span class="gauge-label" id="risk-label">Awaiting Scan</span>
+              </div>
+            </div>
+          </article>
+          <article class="details-wrap">
+            <h3>Analysis Details</h3>
+            <p class="details-url" id="result-url">No URL scanned yet.</p>
+            <ul class="reason-list" id="reason-list">
+              <li>Run a scan to view phishing signals.</li>
+            </ul>
+            <div class="action-row">
+              <button id="open-report" class="ghost-btn" type="button" disabled>
+                Report This URL
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <article class="explain-wrap">
+          <div class="explain-head">
+            <h3>Explainable AI</h3>
+            <span class="status-pill" id="confidence-pill">Confidence: --</span>
+          </div>
+          <p class="explain-summary" id="explain-summary">
+            Scan any URL to view model reasoning and confidence.
+          </p>
+          <div class="contributors" id="contributors"></div>
+        </article>
+      </section>
+
+      <section class="tips card reveal">
+        <h2>Smart Safety Tips</h2>
+        <div class="tips-grid" id="tips-grid"></div>
+      </section>
+
+      <section class="intel card reveal">
+        <div class="intel-head">
+          <h2>Community Intel Feed</h2>
+          <button id="refresh-intel" class="ghost-btn" type="button">Refresh Feed</button>
+        </div>
+        <div class="intel-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Time (UTC)</th>
+                <th>URL</th>
+                <th>Reason</th>
+                <th>Reporter</th>
+                <th>User</th>
+              </tr>
+            </thead>
+            <tbody id="intel-body">
+              <tr>
+                <td colspan="5">No reports yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="alerts card reveal">
+        <div class="intel-head">
+          <h2>Live Alert Feed</h2>
+          <span id="stream-status" class="status-pill">Stream: connecting...</span>
+        </div>
+        <ul id="alerts-list" class="alerts-list">
+          <li>No live alerts yet.</li>
+        </ul>
+      </section>
+
+      <section class="dashboard card reveal">
+        <div class="intel-head">
+          <h2>Responder Dashboard</h2>
+          <button id="refresh-dashboard" class="ghost-btn" type="button">
+            Refresh Dashboard
+          </button>
+        </div>
+
+        <div class="kpi-grid">
+          <article class="kpi">
+            <p>Total Reports</p>
+            <h3 id="kpi-total">0</h3>
+          </article>
+          <article class="kpi">
+            <p>Most Active Reporter</p>
+            <h3 id="kpi-reporter">-</h3>
+          </article>
+          <article class="kpi">
+            <p>Top Flagged Domain</p>
+            <h3 id="kpi-domain">-</h3>
+          </article>
+        </div>
+
+        <div class="dash-grid">
+          <article class="dash-card">
+            <h3>Reporter Breakdown</h3>
+            <div id="reporter-bars" class="bars-host"></div>
+          </article>
+          <article class="dash-card">
+            <h3>Top Domains</h3>
+            <div id="domain-bars" class="bars-host"></div>
+          </article>
+          <article class="dash-card dash-wide">
+            <h3>Hourly Trend (UTC)</h3>
+            <div id="hourly-bars" class="bars-host bars-host-compact"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="report-modal">
+      <form method="dialog" id="report-form">
+        <h3>Submit Community Report</h3>
+        <p class="modal-help">
+          Help strengthen shared phishing intelligence for responders.
+        </p>
+        <label for="report-url">URL</label>
+        <input id="report-url" name="url" type="url" required />
+
+        <label for="report-reason">Why is this suspicious?</label>
+        <textarea
+          id="report-reason"
+          name="reason"
+          rows="4"
+          minlength="5"
+          maxlength="300"
+          placeholder="Looks like fake DBS login page with urgent wording"
+          required
+        ></textarea>
+
+        <label for="reporter-type">Reporter Type</label>
+        <select id="reporter-type" name="reporter_type">
+          <option value="user">User</option>
+          <option value="bank">Bank</option>
+          <option value="gov">Government</option>
+          <option value="partner">Partner</option>
+        </select>
+
+        <label for="reporter-name">Reporter Name (optional)</label>
+        <input
+          id="reporter-name"
+          name="reporter_name"
+          type="text"
+          maxlength="80"
+          placeholder="e.g. Sudhishna"
+        />
+
+        <label for="report-evidence">Evidence (optional)</label>
+        <input
+          id="report-evidence"
+          name="evidence"
+          type="text"
+          maxlength="500"
+          placeholder="Received from SMS claiming account suspension"
+        />
+
+        <div class="modal-actions">
+          <button type="button" id="cancel-report" class="ghost-btn">Cancel</button>
+          <button type="submit">Submit Report</button>
+        </div>
+      </form>
+    </dialog>
+
+    <template id="tip-template">
+      <article class="tip-card">
+        <h3></h3>
+        <p></p>
+      </article>
+    </template>
+
+    <template id="bar-template">
+      <div class="bar-row">
+        <div class="bar-meta">
+          <span class="bar-label"></span>
+          <span class="bar-value"></span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill"></div>
+        </div>
+      </div>
+    </template>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
