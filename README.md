@@ -1,4 +1,4 @@
-[![Watch the video](https://youtu.be/ygZiG_6mTO/0.jpg)](https://youtu.be/ygZiG_6mTO)
+[![Watch the video](https://img.youtube.com/vi/ygZiG_6mTOE/0.jpg)](https://youtu.be/ygZiG_6mTOE)
 
 # Antiphish+ (Team Agentic Avengers)
 
