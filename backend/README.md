@@ -9,6 +9,19 @@ Deployed on **Render**: https://team-agentic-avengers-antiphish.onrender.com
 - No URL content fetching (no SSRF risk)
 - Stable API response shapes for frontend integration
 
+## Detection engine
+
+The phishing detection engine is rule-based and heuristic-driven for transparency and explainability. When a URL is submitted the backend:
+
+- Validates and normalizes the URL (scheme and hostname checks).
+- Applies a set of observable checks (HTTPS, IP hostnames, suspicious TLDs, deceptive keywords, punycode, unusual ports, encoding tricks, lookalike domains, etc.).
+- Assigns a weighted contribution for each detected signal and computes a cumulative integer `riskScore` (0–100).
+- Maps the score to a categorical `riskLabel` (`low` / `medium` / `high`).
+
+Each detected signal is returned with an ID, severity (low/medium/high), and a short message, and the API also returns `recommendedActions` tailored to the risk level. This makes outputs deterministic and explainable.
+
+Note: reports are persisted to disk in `reports.jsonl` (no external DB). There is also an auxiliary `randomforest.joblib` and a model conversion script used to export an ONNX model for the browser extension; the backend analyzer itself is the transparent heuristic engine.
+
 ## Dependencies
 - `fastapi==0.115.8` — API framework
 - `uvicorn[standard]==0.34.0` — ASGI server
