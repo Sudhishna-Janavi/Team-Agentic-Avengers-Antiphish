@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { width: 300px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #f4f7f9; }
+        .header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .logo { width: 30px; height: 30px; }
+        .status-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; }
+        .status-icon { font-size: 24px; color: #2ecc71; margin-bottom: 10px; }
+        .btn-toggle { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; width: 100%; font-weight: bold; }
+        .feature-list { font-size: 11px; color: #7f8c8d; margin-top: 15px; text-align: left; }
+        .sentry-quote {
+    font-size: 16px;
+    /* Using a bolder, thicker gold for maximum visibility */
+    color: #f39c12; 
+    font-weight: 600; 
+    margin-bottom: 20px;
+    font-style: italic;
+}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="icons/shield16.png" class="logo">
+        <h2 style="margin:0; font-size: 18px;">Antiphish</h2>
+    </div>
+    <div class="status-card">
+        <img src="icons/fish.png" alt="Fish Icon" class="icon">
+        <div id="status-text" style="font-weight: bold; margin-bottom: 15px;">Sentry is Active</div>
+        <button id="toggle-btn" class="btn-toggle">Protection Enabled</button>
+        <div class="sentry-quote">
+         The best way to stay safe is to never enter the trap.
+        </div>
+
+        <div class="feature-list">
+    &bull; Blocks known scams instantly <br>
+    &bull; Uses smart AI to find hidden threats <br>
+    &bull; Keeps all your data private and local
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
