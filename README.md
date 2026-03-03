@@ -12,6 +12,7 @@ Antiphish+ is a digital safety platform that helps users detect suspicious URLs,
 
 ## Tech Stack
 ![Tech-stack](./project-docs/antiphish-stack.png)
+---
 | Layer    | Technology                          | Hosting  |
 |----------|-------------------------------------|----------|
 | Frontend | HTML, CSS, JavaScript               | Vercel  |
