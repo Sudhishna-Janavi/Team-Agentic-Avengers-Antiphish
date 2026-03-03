@@ -11,10 +11,10 @@ Antiphish+ is a digital safety platform that helps users detect suspicious URLs,
 - **API docs:** https://team-agentic-avengers-antiphish.onrender.com/docs
 
 ## Tech Stack
-
+![Tech-stack](./project-docs/antiphish-stack.png)
 | Layer    | Technology                          | Hosting  |
 |----------|-------------------------------------|----------|
-| Frontend | HTML, CSS, JavaScript               | Netlify  |
+| Frontend | HTML, CSS, JavaScript               | Vercel  |
 | Backend  | Python 3.12, FastAPI, Uvicorn       | Render   |
 | Data     | File-based (JSONL, no database)     | On disk  |
 
