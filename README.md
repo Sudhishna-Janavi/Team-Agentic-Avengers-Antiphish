@@ -69,6 +69,10 @@ Open in browser:
 
 Detailed API docs: [backend/docs/API.md](backend/docs/API.md)
 
+## Architecture
+
+System architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+
 ## Deployment
 
 ### Backend (Render)
